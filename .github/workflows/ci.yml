@@ -1,0 +1,53 @@
+name: Messy CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # --- PRACA Z BACKENDEM (.NET) ---
+  build-backend:
+    name: Build & Test Backend (.NET)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore backend/Messy.sln
+
+    - name: Build Backend
+      run: dotnet build backend/Messy.sln --no-restore --configuration Release
+
+  # --- PRACA Z FRONTENDEM (Angular) ---
+  build-frontend:
+    name: Build Frontend (Angular)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-dotnet@v4
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22' 
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Build Frontend
+      run: |
+        cd frontend
+        npm run build -- --configuration=production
