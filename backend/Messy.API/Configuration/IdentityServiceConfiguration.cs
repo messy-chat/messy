@@ -1,6 +1,8 @@
 using System.Text;
 using Messy.API.Data;
+using Messy.API.Interfaces;
 using Messy.API.Models;
+using Messy.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
@@ -58,6 +60,9 @@ public static class IdentityServiceConfiguration
                     }
                 };
             });
+
+        services.AddScoped<ITokenService, TokenService>();
+        
         return services;
     }
 }
