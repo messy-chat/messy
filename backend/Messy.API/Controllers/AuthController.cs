@@ -21,7 +21,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponseDto>> Register(RegisterDto registerDto)
+    public async Task<IActionResult> Register(RegisterDto registerDto)
     {
         if (await _userManager.Users.AnyAsync(u => u.Email == registerDto.Email.ToLower()))
         {
@@ -43,11 +43,7 @@ public class AuthController : ControllerBase
             return BadRequest(result.Errors);
         }
 
-        return new AuthResponseDto
-        {
-            Username = user.UserName,
-            Token = _tokenService.CreateToken(user)
-        };
+        return Ok("Rejestracja przebiegła pomyślnie");
     }
 
     [HttpPost("login")]
