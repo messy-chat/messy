@@ -16,7 +16,7 @@
           </label>
           <input type="email" placeholder="email@example.com" class="input input-bordered w-full"
                  formControlName="email"
-                 [ngClass]="{'input-error': email?.invalid && email?.touched}" ] />
+                 [ngClass]="{'input-error': email?.invalid && email?.touched}"/>
         </div>
         @if (email?.invalid && email?.touched) {
           <div class="label pb-0">
@@ -29,7 +29,7 @@
           </div>
         }
 
-        <div class="form-control mt-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Hasło</span>
           </label>
@@ -50,11 +50,11 @@
         </div>
 
         <div class="form-control mt-6">
-          <button type="submit" class="btn btn-primary w-full" [disabled]="isLoading" ]>
+          <button type="submit" class="btn btn-primary w-full" [disabled]="isLoading">
             @if (isLoading) {
               <span class="loading loading-spinner"></span>
-              {{ isLoading ? 'Logowanie...' : 'Zaloguj się' }}
             }
+            {{ isLoading ? 'Logowanie...' : 'Zaloguj się' }}
           </button>
         </div>
       </form>

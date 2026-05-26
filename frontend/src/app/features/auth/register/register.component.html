@@ -3,32 +3,103 @@
     <div class="card-body">
       <h2 class="text-2xl font-bold text-center mb-4">Stwórz konto 🚀</h2>
 
-      <form>
-        <div class="form-control">
+      @if (errorMessage) {
+        <div class="alert alert-error mb-4">
+          <span>{{ errorMessage }}</span>
+        </div>
+      }
+      @if (successMessage) {
+        <div class="alert alert-success mb-4">
+          <span>{{ successMessage }}</span>
+        </div>
+      }
+
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="space-y-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Nazwa użytkownika</span>
           </label>
-          <input type="text" placeholder="np. jkowalski" class="input input-bordered w-full" required />
+          <input type="text" placeholder="np. jkowalski" class="input input-bordered w-full"
+                 formControlName="username" [ngClass]="{'input-error': username?.invalid && username?.touched}" />
+          @if (username?.invalid && username?.touched) {
+            <div class="label pb-0">
+              @if (username?.errors?.['required']) {
+                <span class="label-text-alt text-error">Nazwa użytkownika jest wymagana.</span>
+              }
+              @if (username?.errors?.['minLength']) {
+                <span class="label-text-alt text-error">Minimum 3 znaki.</span>
+              }
+            </div>
+          }
         </div>
 
-        <div class="form-control mt-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Email</span>
           </label>
-          <input type="email" placeholder="email@example.com" class="input input-bordered w-full" required />
+          <input type="email" placeholder="email@example.com" class="input input-bordered w-full"
+                 formControlName="email" [ngClass]="{'input-error': email?.invalid && email?.touched}" />
+          @if (email?.invalid && email?.touched) {
+            <div class="label pb-0">
+              @if (email?.errors?.['required']) {
+                <span class="label-text-alt text-error">Email jest wymagany.</span>
+              }
+              @if (email?.errors?.['email']) {
+                <span class="label-text-alt text-error">Niepoprawny format adresu.</span>
+              }
+            </div>
+          }
         </div>
 
-        <div class="form-control mt-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Hasło</span>
           </label>
-          <input type="password" placeholder="••••••••" class="input input-bordered w-full" required />
+          <input type="password" placeholder="••••••••" class="input input-bordered w-full"
+                 formControlName="password" [ngClass]="{'input-error': password?.invalid && password?.touched}" />
+          @if (password?.invalid && password?.touched) {
+            <div class="label pb-0">
+              @if (password?.errors?.['required']) {
+                <span class="label-text-alt text-error">Wymagane.</span>
+              }
+              @if (password?.errors?.['minLength']) {
+                <span class="label-text-alt text-error">Minimum 8 znaków.</span>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text">Powtórz Hasło</span>
+          </label>
+          <input type="password" placeholder="••••••••" class="input input-bordered w-full"
+                 formControlName="confirmPassword"
+                 [ngClass]="{'input-error': confirmPassword?.invalid && confirmPassword?.touched}" />
+          @if (confirmPassword?.invalid && confirmPassword?.touched) {
+            <div class="label pb-0">
+              @if (confirmPassword?.errors?.['required']) {
+                <span class="label-text-alt text-error">Wymagane.</span>
+              }
+              @if (confirmPassword?.errors?.['passwordMismatch']) {
+                <span class="label-text-alt text-error">Hasła nie są identyczne.</span>
+              }
+            </div>
+          }
         </div>
 
         <div class="form-control mt-6">
-          <button type="button" class="btn btn-primary w-full">Zarejestruj się</button>
+          <button type="submit" class="btn btn-primary w-full"
+                  [disabled]="isLoading || (registerForm.invalid && registerForm.touched)">
+            @if (isLoading) {
+              <span class="loading loading-spinner"></span>
+            }
+            {{ isLoading ? 'Rejestrowanie...' : 'Zarejestruj się' }}
+          </button>
         </div>
       </form>
+
+      <div class="divider">LUB</div>
 
       <div class="text-center mt-6">
         <span class="text-sm">Masz już konto? </span>
