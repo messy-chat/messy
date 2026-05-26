@@ -1,6 +1,5 @@
+using Messy.API.Configuration;
 using Messy.API.Data;
-using Messy.API.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,9 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<MessyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<User, IdentityRole>()
-    .AddEntityFrameworkStores<MessyDbContext>()
-    .AddDefaultTokenProviders();
+builder.Services.AddIdentityServices(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
