@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ProfileService } from '../../../core/services/profile.service';
 import { environment } from '../../../../environments/environment';
@@ -27,11 +27,9 @@ export class ProfileSettingsComponent implements OnInit {
 
   backendUrl = environment.baseUrl;
 
-  avatarUrl = computed(() => {
-    const profile = this.profileService.profile();
-    if (!profile?.profilePictureUrl) return 'assets/default-avatar.png';
-    return `${this.backendUrl}${profile.profilePictureUrl}`;
-  });
+  handleImageError(event: Event) {
+    (event.target as HTMLImageElement).src = this.profileService.defaultAvatar;
+  }
 
   ngOnInit() {
     this.loadProfile();

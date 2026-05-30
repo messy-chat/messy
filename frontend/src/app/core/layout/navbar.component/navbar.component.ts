@@ -21,9 +21,7 @@ export class NavbarComponent {
     this.profileService.clearProfile();
   }
 
-  getAvatarUrl(): string {
-    const profile = this.profileService.profile();
-    if (!profile?.profilePictureUrl) return 'assets/default-avatar.png';
-    return `${this.backendUrl}${profile.profilePictureUrl}`;
+  handleImageError(event: Event) {
+    (event.target as HTMLImageElement).src = this.profileService.defaultAvatar;
   }
 }

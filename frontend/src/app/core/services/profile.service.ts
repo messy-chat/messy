@@ -1,4 +1,4 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { Observable, tap } from 'rxjs';
@@ -11,8 +11,17 @@ import { Profile, UpdateProfileRequest } from '../models/profile.model';
 export class ProfileService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/profile`;
+  private backendUrl = environment.baseUrl;
 
   profile = signal<Profile | null>(null);
+
+  readonly defaultAvatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=Messenger';
+
+  avatarUrl = computed(() => {
+    const profile = this.profile();
+    if (!profile?.profilePictureUrl) return this.defaultAvatar;
+    return `${this.backendUrl}${profile.profilePictureUrl}`;
+  });
 
   getProfile(): Observable<ApiResponse<Profile>> {
     return this.http.get<ApiResponse<Profile>>(this.apiUrl).pipe(
