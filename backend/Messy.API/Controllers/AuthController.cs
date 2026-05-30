@@ -43,8 +43,7 @@ public class AuthController : ControllerBase
             return BadRequest(result.Errors);
         }
 
-        return Ok("Rejestracja przebiegła pomyślnie");
-    }
+        return Ok(new { message = "Rejestracja zakończona sukcesem. Możesz się teraz zalogować." });    }
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
@@ -53,14 +52,14 @@ public class AuthController : ControllerBase
 
         if (user == null)
         {
-            return  Unauthorized("Niprawny adres email lub hasło");
+            return  Unauthorized("Niepoprawny adres email lub hasło");
         }
 
         var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
         
         if (!result)
         {
-            return Unauthorized("Niprawny adres email lub hasło");
+            return Unauthorized("Niepoprawny adres email lub hasło");
         }
 
         user.Status = "Online";

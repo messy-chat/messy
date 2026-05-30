@@ -1,28 +1,61 @@
 <div class="min-h-screen flex items-center justify-center bg-base-200 p-4">
   <div class="card w-full max-w-sm shadow-2xl bg-base-100">
     <div class="card-body">
-      <h2 class="text-2xl font-bold text-center mb-4">Witaj w Messy! 👋</h2>
+      <h2 class="text-2xl font-bold text-center mb-4">Witaj w Messy!</h2>
 
-      <form>
-        <div class="form-control">
+      @if (errorMessage) {
+        <div class="alert alert-error mb-4">
+          <span>{{ errorMessage }}</span>
+        </div>
+      }
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSumbit()" class="space-y-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Email</span>
           </label>
-          <input type="email" placeholder="email@example.com" class="input input-bordered w-full" required />
+          <input type="email" placeholder="email@example.com" class="input input-bordered w-full"
+                 formControlName="email"
+                 [ngClass]="{'input-error': email?.invalid && email?.touched}"/>
         </div>
+        @if (email?.invalid && email?.touched) {
+          <div class="label pb-0">
+            @if (email?.errors?.['required']) {
+              <span class="label-text-alt text-error">Email jest wymagany.</span>
+            }
+            @if (email?.errors?.['email']) {
+              <span class="label-text-alt text-error">Niepoprawny format adresu.</span>
+            }
+          </div>
+        }
 
-        <div class="form-control mt-4">
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text">Hasło</span>
           </label>
-          <input type="password" placeholder="••••••••" class="input input-bordered w-full" required />
-          <label class="label">
-            <a href="#" class="label-text-alt link link-hover">Zapomniałeś hasła?</a>
-          </label>
+          <input type="password" placeholder="••••••••" class="input input-bordered w-full"
+                 formControlName="password"
+                 [ngClass]="{'input-error': password?.invalid && password?.touched}" />
+          @if (password?.invalid && password?.touched) {
+            <div class="label pb-0">
+              @if (password?.errors?.['required']) {
+                <span class="label-text-alt text-error">Hasło jest wymagane.</span>
+              }
+            </div>
+          }
+
+          <!--          <label class="label">-->
+          <!--            <a href="#" class="label-text-alt link link-hover">Zapomniałeś hasła?</a>-->
+          <!--          </label>-->
         </div>
 
         <div class="form-control mt-6">
-          <button type="button" class="btn btn-primary w-full">Zaloguj się</button>
+          <button type="submit" class="btn btn-primary w-full" [disabled]="isLoading">
+            @if (isLoading) {
+              <span class="loading loading-spinner"></span>
+            }
+            {{ isLoading ? 'Logowanie...' : 'Zaloguj się' }}
+          </button>
         </div>
       </form>
 

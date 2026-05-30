@@ -1,13 +1,12 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
+import { AuthService } from '../services/auth.service';
 
-export const authGuard: CanActivateFn = (route, state) => {
+export const authGuard: CanActivateFn = () => {
   const router = inject(Router);
+  const authService = inject(AuthService)
 
-  // TODO: Add validation and JWT decoding
-  const token = localStorage.getItem('token');
-
-  if (token) {
+  if (authService.isAuthenticated()) {
     return true;
   }
 
