@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
@@ -20,25 +20,25 @@ export class LoginComponent {
     password: ['', Validators.required],
   });
 
-  errorMessage = '';
-  isLoading = false;
+  errorMessage = signal('');
+  isLoading = signal(false);
 
-  onSumbit() {
+  onSubmit() {
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = '';
+    this.isLoading.set(true);
+    this.errorMessage.set('');
 
     this.authService.login(this.loginForm.getRawValue()).subscribe({
       next: () => {
         this.router.navigate(['/chat']);
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || err.error || 'Nie udało się zalogować.';
-        this.isLoading = false;
+        this.errorMessage.set(err.error?.message || err.error || 'Nie udało się zalogować.');
+        this.isLoading.set(false);
       },
     });
   }

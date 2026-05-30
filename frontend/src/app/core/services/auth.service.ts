@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
@@ -19,37 +19,15 @@ export class AuthService {
 
   private apiUrl = `${environment.apiUrl}/auth`;
 
-  register(data: RegisterRequest): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/register`, data);
-  }
+  private _token = signal<string | null>(localStorage.getItem('token'));
 
-  login(data: LoginRequest): Observable<ApiResponse<AuthResponse>> {
-    return this.http.post<ApiResponse<AuthResponse>>(`${this.apiUrl}/login`, data).pipe(
-      tap((response) => {
-        if (response.success && response.data?.token) {
-          localStorage.setItem('token', response.data.token);
-        }
-      }),
-    );
-  }
-
-  logout() {
-    localStorage.removeItem('token');
-    this.router.navigate(['/login']);
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem('token');
-  }
-
-  isAuthenticated(): boolean {
-    const token = this.getToken();
+  isAuthenticated = computed(() => {
+    const token = this._token();
     if (!token) return false;
 
     try {
       const payloadBase64 = token.split('.')[1];
-
-      const normalizedBase64 = payloadBase64.replace(/-/g, '+').replace(/_/, '/');
+      const normalizedBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
       const payload = JSON.parse(atob(normalizedBase64));
 
       const isExpired = Math.floor(Date.now() / 1000) >= payload.exp;
@@ -60,8 +38,32 @@ export class AuthService {
       }
       return true;
     } catch (e) {
-      this.logout();
       return false;
     }
+  });
+
+  register(data: RegisterRequest): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/register`, data);
+  }
+
+  login(data: LoginRequest): Observable<ApiResponse<AuthResponse>> {
+    return this.http.post<ApiResponse<AuthResponse>>(`${this.apiUrl}/login`, data).pipe(
+      tap((response) => {
+        if (response.success && response.data?.token) {
+          localStorage.setItem('token', response.data.token);
+          this._token.set(response.data.token);
+        }
+      }),
+    );
+  }
+
+  logout() {
+    localStorage.removeItem('token');
+    this._token.set(null);
+    this.router.navigate(['/login']);
+  }
+
+  getToken(): string | null {
+    return this._token();
   }
 }

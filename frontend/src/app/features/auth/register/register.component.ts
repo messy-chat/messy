@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import {
   AbstractControl,
@@ -31,10 +31,10 @@ export class RegisterComponent {
     { validators: this.passwordMatchValidator },
   );
 
-  errorMessage = '';
-  successMessage = '';
-  isLoading = false;
-  validationErrors: string[] = [];
+  errorMessage = signal('');
+  successMessage = signal('');
+  isLoading = signal(false);
+  validationErrors = signal<string[]>([]);
 
   passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;
@@ -52,27 +52,27 @@ export class RegisterComponent {
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = '';
-    this.successMessage = '';
-    this.validationErrors = [];
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+    this.validationErrors.set([]);
 
     const { confirmPassword, ...registerData } = this.registerForm.getRawValue();
 
     this.authService.register(registerData).subscribe({
       next: (res) => {
-        this.isLoading = false;
-        this.successMessage = res.message || 'Zarejestrowano pomyślnie!';
+        this.isLoading.set(false);
+        this.successMessage.set(res.message || 'Zarejestrowano pomyślnie!');
         setTimeout(() => this.router.navigate(['/login']), 2000);
       },
       error: (err) => {
-        this.isLoading = false;
+        this.isLoading.set(false);
 
         const apiResponse = err.error;
 
-        this.errorMessage = apiResponse?.message || 'Wystąpił nieoczekiwany błąd z serwerem.';
+        this.errorMessage.set(apiResponse?.message || 'Wystąpił nieoczekiwany błąd z serwerem.');
 
-        this.validationErrors = apiResponse?.errors || [];
+        this.validationErrors.set(apiResponse?.errors || []);
       },
     });
   }

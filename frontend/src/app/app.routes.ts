@@ -3,6 +3,7 @@ import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { ChatLayoutComponent } from './features/chat/chat-layout/chat-layout.component';
 import { authGuard } from './core/guards/auth-guard';
+import { ProfileSettingsComponent } from './features/profile/profile-settings.component/profile-settings.component';
 
 export const routes: Routes = [
   { path: '' , redirectTo: 'chat', pathMatch: 'full' },
@@ -11,6 +12,11 @@ export const routes: Routes = [
   {
     path: 'chat',
     component: ChatLayoutComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'profile',
+    component: ProfileSettingsComponent,
     canActivate: [authGuard]
   },
   { path: '**', redirectTo: 'chat' }

@@ -10,7 +10,14 @@ public class LocalPhotoService(IWebHostEnvironment env) : IPhotoService
 
         var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
         
-        var uploadsFolder = Path.Combine(env.WebRootPath, "wwwroot", "images");
+        var webRootPath = env.WebRootPath;
+        
+        if (string.IsNullOrWhiteSpace(webRootPath))
+        {
+            webRootPath = Path.Combine(env.ContentRootPath, "wwwroot");
+        }
+        
+        var uploadsFolder = Path.Combine(webRootPath, "images");
         
         if (!Directory.Exists(uploadsFolder))
         {
