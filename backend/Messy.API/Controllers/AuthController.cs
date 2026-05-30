@@ -1,6 +1,7 @@
 using Messy.API.DTOs;
 using Messy.API.Interfaces;
 using Messy.API.Models;
+using Messy.API.Wrappers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<User> _userManager;
     private readonly ITokenService _tokenService;
-    
+
     public AuthController(UserManager<User> userManager, ITokenService tokenService)
     {
         _userManager = userManager;
@@ -25,7 +26,9 @@ public class AuthController : ControllerBase
     {
         if (await _userManager.Users.AnyAsync(u => u.Email == registerDto.Email.ToLower()))
         {
-            return BadRequest("Ten adres email jest już zajęty.");
+            return BadRequest(ApiResponse<object>.Fail(
+                "Rejestracja nie powiodła się.",
+                ["Ten adres email jest już zajęty."]));
         }
 
         var user = new User
@@ -40,10 +43,17 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            return BadRequest(result.Errors);
+            var errors = result.Errors.Select(e => e.Description).ToList();
+            return BadRequest(ApiResponse<object>.Fail(
+                "Nie spełniono wymagań rejestracji.",
+                errors));
         }
 
-        return Ok(new { message = "Rejestracja zakończona sukcesem. Możesz się teraz zalogować." });    }
+        return Ok(ApiResponse<object>.Ok(
+            null,
+            "Rejestracja przebiegła pomyślnie"
+        ));
+    }
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
@@ -52,24 +62,27 @@ public class AuthController : ControllerBase
 
         if (user == null)
         {
-            return  Unauthorized("Niepoprawny adres email lub hasło");
+            return Unauthorized(ApiResponse<AuthResponseDto>
+                .Fail("Niprawny adres email lub hasło"));
         }
 
         var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
-        
+
         if (!result)
         {
-            return Unauthorized("Niepoprawny adres email lub hasło");
+            return Unauthorized("Niprawny adres email lub hasło");
         }
 
         user.Status = "Online";
         user.LastSeen = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        return new AuthResponseDto
+        var responseData = new AuthResponseDto
         {
             Username = user.UserName!,
             Token = _tokenService.CreateToken(user)
         };
+
+        return Ok(ApiResponse<AuthResponseDto>.Ok(responseData, "Zalogowano pomyślnie"));
     }
 }
