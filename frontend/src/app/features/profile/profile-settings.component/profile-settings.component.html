@@ -1,0 +1,60 @@
+<div class="max-w-3xl mx-auto p-6">
+  <h2 class="text-3xl font-bold mb-8">Ustawienia Profilu</h2>
+
+  @if (successMessage()) {
+    <div class="alert alert-success mb-6"><span>{{ successMessage() }}</span></div>
+  }
+  @if (errorMessage()) {
+    <div class="alert alert-error mb-6"><span>{{ errorMessage() }}</span></div>
+  }
+
+  <div class="bg-base-100 shadow-xl rounded-box p-6 flex flex-col md:flex-row gap-8">
+
+    <div class="flex flex-col items-center gap-4 w-full md:w-1/3 border-b md:border-b-0 md:border-r border-base-300 pb-6 md:pb-0">
+      <div class="avatar">
+        <div class="w-32 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 relative group cursor-pointer">
+          <img [src]="profileService.avatarUrl()" alt="Avatar" (error)="handleImageError($event)" />
+
+          <label class="absolute inset-0 bg-black/50 text-white flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+            <span class="text-sm font-semibold">{{ isUploading() ? 'Ładowanie...' : 'Zmień' }}</span>
+            <input type="file" class="hidden" accept="image/png, image/jpeg" (change)="onFileSelected($event)" [disabled]="isUploading()">
+          </label>
+        </div>
+      </div>
+      <div class="text-center">
+        <p class="font-bold text-lg">{{ profileService.profile()?.username }}</p>
+        <p class="text-sm text-base-content/70">{{ profileService.profile()?.email }}</p>
+      </div>
+    </div>
+
+    <div class="w-full md:w-2/3">
+      <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Nazwa Wyświetlana</span></label>
+          <input type="text" formControlName="displayName" class="input input-bordered w-full" placeholder="Napisz jak się nazywasz" />
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Status (opis pod pseudonimem)</span></label>
+          <input type="text" formControlName="status" class="input input-bordered w-full" placeholder="Np. Pracuje / Słucha muzyki" />
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">O mnie (Bio)</span></label>
+          <textarea formControlName="bio" class="textarea textarea-bordered w-full" placeholder="Napisz coś o sobie..."></textarea>
+        </div>
+
+        <div class="form-control mt-4">
+          <button type="submit" class="btn btn-primary w-full md:w-auto self-end" [disabled]="isLoading()">
+            @if (isLoading()) {
+              <span class="loading loading-spinner"></span>
+            }
+            Zapisz zmiany
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
