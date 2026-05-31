@@ -8,6 +8,7 @@ import {
   LoginRequest,
   RegisterRequest,
 } from '../models/auth.model';
+import { ApiResponse } from '../models/response.model';
 
 @Injectable({
   providedIn: 'root',
@@ -18,15 +19,15 @@ export class AuthService {
 
   private apiUrl = `${environment.apiUrl}/auth`;
 
-  register(data: RegisterRequest): Observable<any> {
-    return this.http.post(`${this.apiUrl}/register`, data);
+  register(data: RegisterRequest): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/register`, data);
   }
 
-  login(data: LoginRequest): Observable<AuthResponse> {
-    return this.http.post(`${this.apiUrl}/login`, data).pipe(
-      tap((response: any) => {
-        if (response.token) {
-          localStorage.setItem('token', response.token);
+  login(data: LoginRequest): Observable<ApiResponse<AuthResponse>> {
+    return this.http.post<ApiResponse<AuthResponse>>(`${this.apiUrl}/login`, data).pipe(
+      tap((response) => {
+        if (response.success && response.data?.token) {
+          localStorage.setItem('token', response.data.token);
         }
       }),
     );

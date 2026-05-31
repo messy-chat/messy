@@ -1,6 +1,5 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common';
 import {
   AbstractControl,
   FormBuilder,
@@ -9,11 +8,12 @@ import {
   Validators,
 } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { NgClass } from '@angular/common';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [ReactiveFormsModule, RouterModule, NgClass],
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {
@@ -34,6 +34,7 @@ export class RegisterComponent {
   errorMessage = '';
   successMessage = '';
   isLoading = false;
+  validationErrors: string[] = [];
 
   passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;
@@ -54,6 +55,7 @@ export class RegisterComponent {
     this.isLoading = true;
     this.errorMessage = '';
     this.successMessage = '';
+    this.validationErrors = [];
 
     const { confirmPassword, ...registerData } = this.registerForm.getRawValue();
 
@@ -64,13 +66,13 @@ export class RegisterComponent {
         setTimeout(() => this.router.navigate(['/login']), 2000);
       },
       error: (err) => {
-        if (Array.isArray(err.error)) {
-          this.errorMessage = err.error.map((e: any) => e.description).join(' ');
-        } else {
-          this.errorMessage =
-            err.error?.message || err.error || 'Wystąpił błąd podczas rejestracji.';
-        }
         this.isLoading = false;
+
+        const apiResponse = err.error;
+
+        this.errorMessage = apiResponse?.message || 'Wystąpił nieoczekiwany błąd z serwerem.';
+
+        this.validationErrors = apiResponse?.errors || [];
       },
     });
   }
