@@ -2,6 +2,8 @@ import { Component, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { ProfileService } from '../../../core/services/profile.service';
+import { ChatService } from '../../../core/services/chat.service';
 import { NgClass } from '@angular/common';
 
 @Component({
@@ -13,6 +15,8 @@ import { NgClass } from '@angular/common';
 export class LoginComponent {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private profileService = inject(ProfileService);
+  private chatService = inject(ChatService);
   private router = inject(Router);
 
   loginForm = this.fb.nonNullable.group({
@@ -34,6 +38,8 @@ export class LoginComponent {
 
     this.authService.login(this.loginForm.getRawValue()).subscribe({
       next: () => {
+        this.profileService.getProfile().subscribe();
+        this.chatService.createHubConnection();
         this.router.navigate(['/chat']);
       },
       error: (err) => {
