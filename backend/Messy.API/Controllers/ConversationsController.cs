@@ -100,7 +100,7 @@ public class ConversationsController : ControllerBase
     }
 
     [HttpGet("{conversationId}/messages")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<MessageDto>>>> GetMessages(Guid conversationId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<ApiResponse<IEnumerable<MessageDto>>>> GetMessages(Guid conversationId, [FromQuery] Guid? beforeMessageId = null, [FromQuery] int pageSize = 50)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
@@ -111,11 +111,25 @@ public class ConversationsController : ControllerBase
 
         if (!isMember) return Forbid();
 
-        var messages = await _context.Messages
-            .Where(m => m.ConversationId == conversationId)
+        var query = _context.Messages
+            .Where(m => m.ConversationId == conversationId);
+
+        if (beforeMessageId.HasValue && beforeMessageId.Value != Guid.Empty)
+        {
+            var cursorMessage = await _context.Messages
+                .FirstOrDefaultAsync(m => m.Id == beforeMessageId.Value);
+
+            if (cursorMessage == null)
+            {
+                return Ok(ApiResponse<IEnumerable<MessageDto>>.Ok(Enumerable.Empty<MessageDto>()));
+            }
+
+            query = query.Where(m => m.TimeStamp < cursorMessage.TimeStamp);
+        }
+
+        var messages = await query
             .Include(m => m.Sender)
             .OrderByDescending(m => m.TimeStamp)
-            .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
