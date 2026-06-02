@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ProfileService } from '../../services/profile.service';
+import { ChatService } from '../../services/chat.service';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -14,9 +15,11 @@ import { environment } from '../../../../environments/environment';
 export class NavbarComponent {
   authService = inject(AuthService);
   profileService = inject(ProfileService);
+  chatService = inject(ChatService);
   backendUrl = environment.baseUrl;
 
   logout() {
+    this.chatService.stopHubConnection();
     this.authService.logout();
     this.profileService.clearProfile();
   }

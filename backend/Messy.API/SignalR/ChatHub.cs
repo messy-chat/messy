@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace Messy.API.SignalR;
 
-[Authorize] // Do Huba mogą wbić tylko zalogowani
+[Authorize]
 public class ChatHub : Hub
 {
     private readonly PresenceTracker _tracker;
