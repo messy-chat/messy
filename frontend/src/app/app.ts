@@ -3,12 +3,13 @@ import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { ChatService } from './core/services/chat.service';
 import { ProfileService } from './core/services/profile.service';
+import { NavbarComponent } from './core/layout/navbar.component/navbar.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, NavbarComponent],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
 })
 export class App implements OnInit {
   protected readonly title = signal('frontend');
