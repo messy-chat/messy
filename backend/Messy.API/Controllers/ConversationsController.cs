@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Messy.API.DTOs;
 using Messy.API.Interfaces;
+using Messy.API.Models;
 using Messy.API.Wrappers;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Messy.API.Controllers;
@@ -10,20 +12,26 @@ namespace Messy.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ConversationsController(IChatService chatService) : ControllerBase
+public class ConversationsController(IChatService chatService, UserManager<User> userManager) : ControllerBase
 {
-    [HttpPost("private/{targetUserId}")]
-    public async Task<ActionResult<ApiResponse<Guid>>> CreatePrivateConversation(string targetUserId)
+    [HttpPost("private/{targetUsername}")]
+    public async Task<ActionResult<ApiResponse<Guid>>> CreatePrivateConversation(string targetUsername)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
 
-        if (currentUserId == targetUserId)
+        var targetUser = await userManager.FindByNameAsync(targetUsername);
+        if (targetUser == null)
         {
-            return BadRequest(ApiResponse<Guid>.Fail("You cannot start a chat with yourself."));
+            return NotFound(ApiResponse<Guid>.Fail("Użytkownik nie został znaleziony."));
         }
 
-        var conversationId = await chatService.GetOrCreatePrivateConversationAsync(currentUserId, targetUserId);
+        if (currentUserId == targetUser.Id)
+        {
+            return BadRequest(ApiResponse<Guid>.Fail("Nie możesz rozpocząć czatu ze samym sobą."));
+        }
+
+        var conversationId = await chatService.GetOrCreatePrivateConversationAsync(currentUserId, targetUser.Id);
         return Ok(ApiResponse<Guid>.Ok(conversationId));
     }
 

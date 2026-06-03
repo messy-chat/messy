@@ -70,8 +70,8 @@ export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy 
     }
   }
 
-  startChat(userId: string) {
-    this.conversationService.createPrivateConversation(userId).subscribe({
+  startChat(username: string) {
+    this.conversationService.createPrivateConversation(username).subscribe({
       next: (res) => {
         if (res.success) {
           this.searchQuery.set('');

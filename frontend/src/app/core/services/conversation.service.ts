@@ -67,7 +67,7 @@ export class ConversationService {
       );
   }
 
-  createPrivateConversation(targetUserId: string) {
-    return this.http.post<ApiResponse<string>>(`${this.apiUrl}/private/${targetUserId}`, {});
+  createPrivateConversation(targetUsername: string) {
+    return this.http.post<ApiResponse<string>>(`${this.apiUrl}/private/${targetUsername}`, {});
   }
 }
