@@ -1,0 +1,70 @@
+using System.Security.Claims;
+using Messy.API.DTOs;
+using Messy.API.Interfaces;
+using Messy.API.Wrappers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Messy.API.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public class UserController(IUserService userService, IPhotoService photoService) : ControllerBase
+{
+    [HttpGet("me")]
+    public async Task<ActionResult<ApiResponse<ProfileDto>>> GetMyProfile()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(ApiResponse<ProfileDto>.Fail("Session expired."));
+
+        var profile = await userService.GetProfileByIdAsync(userId);
+        if (profile == null) return NotFound(ApiResponse<ProfileDto>.Fail("User not found."));
+
+        return Ok(ApiResponse<ProfileDto>.Ok(profile, "Profile retrieved."));
+    }
+
+    [HttpPut("update")]
+    public async Task<ActionResult<ApiResponse<object>>> UpdateProfile(UpdateProfileDto updateDto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(ApiResponse<object>.Fail("Session expired."));
+
+        var success = await userService.UpdateProfileAsync(userId, updateDto);
+        if (!success) return BadRequest(ApiResponse<object>.Fail("Failed to update profile."));
+
+        return Ok(ApiResponse<object>.Ok(null, "Your profile has been successfully updated."));
+    }
+
+    [HttpPost("photo")]
+    public async Task<ActionResult<ApiResponse<string>>> UploadProfilePicture(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(ApiResponse<string>.Fail("No file uploaded."));
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(ApiResponse<string>.Fail("Session expired."));
+
+        var photoUrl = await photoService.UploadPhotoAsync(file);
+        var success = await userService.UpdateProfilePictureAsync(userId, photoUrl);
+
+        if (!success)
+        {
+            return BadRequest(ApiResponse<string>.Fail("Failed to update profile picture."));
+        }
+
+        return Ok(ApiResponse<string>.Ok(photoUrl, "Profile picture updated."));
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<ProfileDto>>>> SearchUsers([FromQuery] string query)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized();
+
+        var users = await userService.SearchUsersAsync(query, userId);
+        return Ok(ApiResponse<IEnumerable<ProfileDto>>.Ok(users));
+    }
+}
