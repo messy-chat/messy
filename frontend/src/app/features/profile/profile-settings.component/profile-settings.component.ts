@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ProfileService } from '../../../core/services/profile.service';
+import { UserService } from '../../../core/services/user.service';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -12,7 +12,7 @@ import { environment } from '../../../../environments/environment';
 })
 export class ProfileSettingsComponent implements OnInit {
   private fb = inject(FormBuilder);
-  profileService = inject(ProfileService);
+  userService = inject(UserService);
 
   profileForm = this.fb.nonNullable.group({
     displayName: [''],
@@ -28,7 +28,7 @@ export class ProfileSettingsComponent implements OnInit {
   backendUrl = environment.baseUrl;
 
   handleImageError(event: Event) {
-    (event.target as HTMLImageElement).src = this.profileService.defaultAvatar;
+    (event.target as HTMLImageElement).src = this.userService.defaultAvatar;
   }
 
   ngOnInit() {
@@ -36,7 +36,7 @@ export class ProfileSettingsComponent implements OnInit {
   }
 
   private loadProfile() {
-    this.profileService.getProfile().subscribe({
+    this.userService.getProfile().subscribe({
       next: (res) => {
         if (res.success) {
           this.profileForm.patchValue({
@@ -57,7 +57,7 @@ export class ProfileSettingsComponent implements OnInit {
       this.errorMessage.set('');
       this.successMessage.set('');
 
-      this.profileService.uploadAvatar(file).subscribe({
+      this.userService.uploadAvatar(file).subscribe({
         next: () => {
           this.isUploading.set(false);
           this.successMessage.set('Zdjęcie zaktualizowane!');
@@ -77,7 +77,7 @@ export class ProfileSettingsComponent implements OnInit {
 
     const updateData = this.profileForm.getRawValue();
 
-    this.profileService.updateProfile(updateData).subscribe({
+    this.userService.updateProfile(updateData).subscribe({
       next: (res) => {
         this.isLoading.set(false);
         this.successMessage.set(res.message || 'Profil zaktualizowany!');

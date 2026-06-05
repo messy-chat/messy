@@ -2,7 +2,38 @@
   <!-- Left Column: Conversation List -->
   <div class="w-1/4 border-r border-base-300 flex flex-col">
     <div class="p-4 border-b border-base-300 bg-base-200">
-      <h2 class="text-xl font-bold">Conversations</h2>
+      <h2 class="text-xl font-bold mb-4">Conversations</h2>
+      <div class="relative">
+        <input
+          type="text"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event); onSearch()"
+          placeholder="Search users..."
+          class="input input-bordered input-sm w-full"
+        />
+        @if (searchResults().length > 0) {
+          <div class="absolute z-10 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-60 overflow-y-auto border border-base-300">
+            @for (user of searchResults(); track user.username) {
+              <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
+                <div class="flex items-center gap-2 overflow-hidden">
+                  <div class="avatar placeholder">
+                    <div class="bg-neutral text-neutral-content rounded-full w-8">
+                      <span class="text-xs">{{ user.username.substring(0, 2).toUpperCase() }}</span>
+                    </div>
+                  </div>
+                  <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
+                </div>
+                <button
+                  (click)="startChat(user.username)"
+                  class="btn btn-primary btn-xs"
+                >
+                  Chat
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
     </div>
     <div class="flex-1 overflow-y-auto">
       @for (conv of conversationService.conversations(); track conv.id) {
@@ -47,7 +78,7 @@
         @for (msg of conversationService.messages(); track msg.id) {
           <div
             class="chat"
-            [ngClass]="msg.senderId === profileService.profile()?.username ? 'chat-end' : 'chat-start'"
+            [ngClass]="msg.senderId === userService.profile()?.username ? 'chat-end' : 'chat-start'"
           >
             <div class="chat-header">
               {{ msg.senderName }}
@@ -55,7 +86,7 @@
             </div>
             <div
               class="chat-bubble"
-              [ngClass]="msg.senderId === profileService.profile()?.username ? 'chat-bubble-primary' : 'chat-bubble-secondary'"
+              [ngClass]="msg.senderId === userService.profile()?.username ? 'chat-bubble-primary' : 'chat-bubble-secondary'"
             >
               {{ msg.content }}
             </div>

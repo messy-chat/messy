@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import { ProfileService } from '../../services/profile.service';
+import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
 import { environment } from '../../../../environments/environment';
 
@@ -14,17 +14,17 @@ import { environment } from '../../../../environments/environment';
 })
 export class NavbarComponent {
   authService = inject(AuthService);
-  profileService = inject(ProfileService);
+  userService = inject(UserService);
   chatService = inject(ChatService);
   backendUrl = environment.baseUrl;
 
   logout() {
     this.chatService.stopHubConnection();
     this.authService.logout();
-    this.profileService.clearProfile();
+    this.userService.clearProfile();
   }
 
   handleImageError(event: Event) {
-    (event.target as HTMLImageElement).src = this.profileService.defaultAvatar;
+    (event.target as HTMLImageElement).src = this.userService.defaultAvatar;
   }
 }

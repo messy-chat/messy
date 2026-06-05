@@ -8,9 +8,9 @@ import { Profile, UpdateProfileRequest } from '../models/profile.model';
 @Injectable({
   providedIn: 'root',
 })
-export class ProfileService {
+export class UserService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/profile`;
+  private apiUrl = `${environment.apiUrl}/user`;
   private backendUrl = environment.baseUrl;
 
   profile = signal<Profile | null>(null);
@@ -24,7 +24,7 @@ export class ProfileService {
   });
 
   getProfile(): Observable<ApiResponse<Profile>> {
-    return this.http.get<ApiResponse<Profile>>(this.apiUrl).pipe(
+    return this.http.get<ApiResponse<Profile>>(`${this.apiUrl}/me`).pipe(
       tap((res) => {
         if (res.success) {
           this.profile.set(res.data);
@@ -53,6 +53,10 @@ export class ProfileService {
         }
       }),
     );
+  }
+
+  searchUsers(query: string): Observable<ApiResponse<Profile[]>> {
+    return this.http.get<ApiResponse<Profile[]>>(`${this.apiUrl}/search?query=${query}`);
   }
 
   clearProfile() {

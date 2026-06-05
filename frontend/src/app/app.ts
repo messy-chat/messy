@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { ChatService } from './core/services/chat.service';
-import { ProfileService } from './core/services/profile.service';
+import { UserService } from './core/services/user.service';
 import { NavbarComponent } from './core/layout/navbar.component/navbar.component';
 
 @Component({
@@ -15,11 +15,11 @@ export class App implements OnInit {
   protected readonly title = signal('frontend');
   private authService = inject(AuthService);
   private chatService = inject(ChatService);
-  private profileService = inject(ProfileService);
+  private userService = inject(UserService);
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      this.profileService.getProfile().subscribe();
+      this.userService.getProfile().subscribe();
       this.chatService.createHubConnection();
     }
   }

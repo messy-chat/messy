@@ -66,4 +66,8 @@ export class ConversationService {
         }),
       );
   }
+
+  createPrivateConversation(targetUsername: string) {
+    return this.http.post<ApiResponse<string>>(`${this.apiUrl}/private/${targetUsername}`, {});
+  }
 }
