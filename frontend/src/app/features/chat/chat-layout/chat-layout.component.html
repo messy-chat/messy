@@ -1,50 +1,96 @@
-<div class="flex flex-col h-screen bg-base-200 overflow-hidden">
-
-  <app-navbar></app-navbar>
-
-  <div class="flex flex-1 overflow-hidden">
-
-    <aside class="w-80 bg-base-100 border-r border-base-300 hidden md:flex flex-col">
-      <div class="p-4 border-b border-base-300">
-        <input type="text" placeholder="Szukaj znajomych..." class="input input-bordered w-full input-sm" />
-      </div>
-
-      <ul class="menu w-full p-2 overflow-y-auto flex-1">
-        <li><a class="active">Jan</a></li>
-        <li><a>Jan Kowalski</a></li>
-        <li><a>Grupa: Projekt</a></li>
-      </ul>
-    </aside>
-
-    <main class="flex-1 flex flex-col bg-base-100">
-
-      <div class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur flex items-center justify-between">
-        <h2 class="font-bold text-lg">Jan</h2>
-        <span class="badge badge-success badge-sm">Online</span>
-      </div>
-
-      <div class="flex-1 overflow-y-auto p-4 space-y-4">
-
-        <div class="chat chat-start">
-          <div class="chat-header">Jan <time class="text-xs opacity-50">12:45</time></div>
-          <div class="chat-bubble">Hej, co słychać?</div>
+<div class="flex h-[calc(100vh-64px)] overflow-hidden bg-base-100">
+  <!-- Left Column: Conversation List -->
+  <div class="w-1/4 border-r border-base-300 flex flex-col">
+    <div class="p-4 border-b border-base-300 bg-base-200">
+      <h2 class="text-xl font-bold">Conversations</h2>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      @for (conv of conversationService.conversations(); track conv.id) {
+        <div
+          (click)="selectConversation(conv.id)"
+          class="p-4 cursor-pointer hover:bg-base-200 border-b border-base-300 transition-colors"
+          [ngClass]="{ 'bg-primary/10 border-l-4 border-l-primary': conversationService.activeConversationId() === conv.id }"
+        >
+          <div class="flex justify-between items-start">
+            <h3 class="font-semibold truncate">{{ conv.name }}</h3>
+            @if (conv.lastMessageSentAt) {
+              <span class="text-xs opacity-50">{{ conv.lastMessageSentAt | date:'shortTime' }}</span>
+            }
+          </div>
+          @if (conv.lastMessage) {
+            <p class="text-sm opacity-70 truncate">{{ conv.lastMessage }}</p>
+          }
         </div>
-
-        <div class="chat chat-end">
-          <div class="chat-header">Adam <time class="text-xs opacity-50">12:46</time></div>
-          <div class="chat-bubble chat-bubble-primary">U mnie wszystko ok!</div>
-          <div class="chat-footer opacity-50">Widziano</div>
+      } @empty {
+        <div class="p-8 text-center opacity-50">
+          No conversations found.
         </div>
+      }
+    </div>
+  </div>
 
+  <!-- Right Column: Chat Window -->
+  <div class="w-3/4 flex flex-col relative">
+    @if (conversationService.activeConversationId()) {
+      <!-- Messages Area -->
+      <div
+        #scrollContainer
+        (scroll)="onScroll($event)"
+        class="flex-1 overflow-y-auto p-4 space-y-4"
+      >
+        @if (conversationService.isLoadingHistory() && conversationService.messages().length === 0) {
+          <div class="flex justify-center p-4">
+            <span class="loading loading-spinner loading-md"></span>
+          </div>
+        }
+
+        @for (msg of conversationService.messages(); track msg.id) {
+          <div
+            class="chat"
+            [ngClass]="msg.senderId === profileService.profile()?.username ? 'chat-end' : 'chat-start'"
+          >
+            <div class="chat-header">
+              {{ msg.senderName }}
+              <time class="text-xs opacity-50 ml-1">{{ msg.sentAt | date:'shortTime' }}</time>
+            </div>
+            <div
+              class="chat-bubble"
+              [ngClass]="msg.senderId === profileService.profile()?.username ? 'chat-bubble-primary' : 'chat-bubble-secondary'"
+            >
+              {{ msg.content }}
+            </div>
+          </div>
+        }
+
+        @if (conversationService.isLoadingHistory() && conversationService.messages().length > 0) {
+          <div class="flex justify-center p-2">
+            <span class="loading loading-spinner loading-sm text-primary"></span>
+          </div>
+        }
       </div>
 
-      <div class="p-4 bg-base-200 border-t border-base-300">
-        <div class="join w-full">
-          <input type="text" placeholder="Napisz wiadomość..." class="input input-bordered join-item w-full" />
-          <button class="btn btn-primary join-item">Wyślij</button>
-        </div>
+      <!-- Message Input -->
+      <div class="p-4 border-t border-base-300 bg-base-200">
+        <form (submit)="sendMessage(messageInput); $event.preventDefault()" class="flex gap-2">
+          <input
+            #messageInput
+            type="text"
+            placeholder="Type your message..."
+            class="input input-bordered flex-1 focus:input-primary"
+            autocomplete="off"
+          />
+          <button type="submit" class="btn btn-primary" [disabled]="!messageInput.value.trim()">
+            Send
+          </button>
+        </form>
       </div>
-
-    </main>
+    } @else {
+      <!-- Placeholder -->
+      <div class="flex-1 flex flex-col items-center justify-center opacity-50 p-8 text-center">
+        <div class="text-6xl mb-4">💬</div>
+        <h2 class="text-2xl font-bold">Your Messages</h2>
+        <p>Select a conversation from the list to start chatting.</p>
+      </div>
+    }
   </div>
 </div>

@@ -3,7 +3,14 @@ using Messy.API.Data;
 using Messy.API.SignalR;
 using Microsoft.EntityFrameworkCore;
 
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootPath))
+{
+    Directory.CreateDirectory(wwwrootPath);
+}
+
 var builder = WebApplication.CreateBuilder(args);
+
 
 builder.Services.AddDbContext<MessyDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
