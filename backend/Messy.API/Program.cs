@@ -44,13 +44,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapHub<ChatHub>("/hubs/chat");
-
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAngularApp");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.MapControllers();
 

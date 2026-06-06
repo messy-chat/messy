@@ -14,6 +14,7 @@ public class Message
     public DateTime TimeStamp { get; set; } = DateTime.UtcNow;
     public MessageType Type { get; set; } = MessageType.Text;
     public string? MediaUrl { get; set; }
+    public bool IsRead { get; set; } = false;
 
     public string SenderId { get; set; } = null!;
     public User Sender { get; set; } = null!;

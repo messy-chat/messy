@@ -1,13 +1,4 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  OnDestroy,
-  ViewChild,
-  ElementRef,
-  AfterViewChecked,
-  signal,
-} from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { UserService } from '../../../core/services/user.service';
@@ -15,21 +6,19 @@ import { ChatService } from '../../../core/services/chat.service';
 import { Profile } from '../../../core/models/profile.model';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-chat-layout',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './chat-layout.component.html',
 })
-export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy {
+export class ChatLayoutComponent implements OnInit, OnDestroy {
   protected conversationService = inject(ConversationService);
   protected userService = inject(UserService);
   protected chatService = inject(ChatService);
 
-  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
-
-  private shouldScrollToBottom = false;
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
 
@@ -39,6 +28,11 @@ export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy 
   ngOnInit(): void {
     this.conversationService.loadMyConversations();
 
+    const currentId = this.conversationService.activeConversationId();
+    if (currentId) {
+      this.chatService.joinRoom(currentId);
+    }
+
     this.searchSubject
       .pipe(debounceTime(500), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((query) => {
@@ -47,6 +41,10 @@ export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   ngOnDestroy(): void {
+    const currentId = this.conversationService.activeConversationId();
+    if (currentId) {
+      this.chatService.leaveRoom(currentId);
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -77,8 +75,8 @@ export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy 
           this.searchQuery.set('');
           this.searchResults.set([]);
           this.conversationService.loadMyConversations();
-          const conversationId = parseInt(res.data);
-          if (!isNaN(conversationId)) {
+          const conversationId = res.data;
+          if (conversationId) {
             this.selectConversation(conversationId);
           }
         }
@@ -86,57 +84,32 @@ export class ChatLayoutComponent implements OnInit, AfterViewChecked, OnDestroy 
     });
   }
 
-  ngAfterViewChecked(): void {
-    if (this.shouldScrollToBottom) {
-      this.scrollToBottom();
-      this.shouldScrollToBottom = false;
+  selectConversation(id: string) {
+    const previousId = this.conversationService.activeConversationId();
+    if (previousId) {
+      this.chatService.leaveRoom(previousId);
     }
-  }
 
-  selectConversation(id: number) {
+    this.conversationService.loadMyConversations();
     this.conversationService.loadInitialHistory(id).subscribe(() => {
-      this.shouldScrollToBottom = true;
+      this.chatService.joinRoom(id);
     });
-  }
-
-  onScroll(event: any) {
-    const element = event.target;
-    if (
-      element.scrollTop === 0 &&
-      !this.conversationService.isLoadingHistory() &&
-      this.conversationService.hasMoreMessages()
-    ) {
-      const messages = this.conversationService.messages();
-      if (messages.length > 0) {
-        const oldestMessageId = messages[0].id;
-        const oldScrollHeight = element.scrollHeight;
-        const conversationId = this.conversationService.activeConversationId();
-
-        if (conversationId) {
-          this.conversationService
-            .loadOlderMessages(conversationId, oldestMessageId)
-            .subscribe(() => {
-              setTimeout(() => {
-                element.scrollTop = element.scrollHeight - oldScrollHeight;
-              }, 0);
-            });
-        }
-      }
-    }
-  }
-
-  private scrollToBottom(): void {
-    if (this.scrollContainer) {
-      this.scrollContainer.nativeElement.scrollTop =
-        this.scrollContainer.nativeElement.scrollHeight;
-    }
   }
 
   sendMessage(inputElement: HTMLInputElement) {
     const content = inputElement.value.trim();
-    if (content) {
-      console.log('Sending message:', content);
-      inputElement.value = '';
+    const conversationId = this.conversationService.activeConversationId();
+
+    if (content && conversationId) {
+      this.chatService
+        .sendMessage(conversationId, content)
+        .then((message) => {
+          if (message) {
+            this.conversationService.pushMessage(message);
+          }
+          inputElement.value = '';
+        })
+        .catch((err) => console.error('Failed to send message', err));
     }
   }
 }

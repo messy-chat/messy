@@ -2,7 +2,10 @@
   <!-- Left Column: Conversation List -->
   <div class="w-1/4 border-r border-base-300 flex flex-col">
     <div class="p-4 border-b border-base-300 bg-base-200">
-      <h2 class="text-xl font-bold mb-4">Conversations</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Conversations</h2>
+        <button routerLink="/create-group" class="btn btn-primary btn-xs">+ Group</button>
+      </div>
       <div class="relative">
         <input
           type="text"
@@ -12,9 +15,13 @@
           class="input input-bordered input-sm w-full"
         />
         @if (searchResults().length > 0) {
-          <div class="absolute z-10 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-60 overflow-y-auto border border-base-300">
+          <div
+            class="absolute z-10 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-60 overflow-y-auto border border-base-300"
+          >
             @for (user of searchResults(); track user.username) {
-              <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
+              <div
+                class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0"
+              >
                 <div class="flex items-center gap-2 overflow-hidden">
                   <div class="avatar placeholder">
                     <div class="bg-neutral text-neutral-content rounded-full w-8">
@@ -23,10 +30,7 @@
                   </div>
                   <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
                 </div>
-                <button
-                  (click)="startChat(user.username)"
-                  class="btn btn-primary btn-xs"
-                >
+                <button (click)="startChat(user.username)" class="btn btn-primary btn-xs">
                   Chat
                 </button>
               </div>
@@ -40,12 +44,17 @@
         <div
           (click)="selectConversation(conv.id)"
           class="p-4 cursor-pointer hover:bg-base-200 border-b border-base-300 transition-colors"
-          [ngClass]="{ 'bg-primary/10 border-l-4 border-l-primary': conversationService.activeConversationId() === conv.id }"
+          [ngClass]="{
+            'bg-primary/10 border-l-4 border-l-primary':
+              conversationService.activeConversationId() === conv.id,
+          }"
         >
           <div class="flex justify-between items-start">
             <h3 class="font-semibold truncate">{{ conv.name }}</h3>
             @if (conv.lastMessageSentAt) {
-              <span class="text-xs opacity-50">{{ conv.lastMessageSentAt | date:'shortTime' }}</span>
+              <span class="text-xs opacity-50">{{
+                conv.lastMessageSentAt | date: 'shortTime'
+              }}</span>
             }
           </div>
           @if (conv.lastMessage) {
@@ -53,9 +62,7 @@
           }
         </div>
       } @empty {
-        <div class="p-8 text-center opacity-50">
-          No conversations found.
-        </div>
+        <div class="p-8 text-center opacity-50">No conversations found.</div>
       }
     </div>
   </div>
@@ -64,12 +71,10 @@
   <div class="w-3/4 flex flex-col relative">
     @if (conversationService.activeConversationId()) {
       <!-- Messages Area -->
-      <div
-        #scrollContainer
-        (scroll)="onScroll($event)"
-        class="flex-1 overflow-y-auto p-4 space-y-4"
-      >
-        @if (conversationService.isLoadingHistory() && conversationService.messages().length === 0) {
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        @if (
+          conversationService.isLoadingHistory() && conversationService.messages().length === 0
+        ) {
           <div class="flex justify-center p-4">
             <span class="loading loading-spinner loading-md"></span>
           </div>
@@ -78,15 +83,19 @@
         @for (msg of conversationService.messages(); track msg.id) {
           <div
             class="chat"
-            [ngClass]="msg.senderId === userService.profile()?.username ? 'chat-end' : 'chat-start'"
+            [ngClass]="msg.senderId === userService.profile()?.id ? 'chat-end' : 'chat-start'"
           >
             <div class="chat-header">
               {{ msg.senderName }}
-              <time class="text-xs opacity-50 ml-1">{{ msg.sentAt | date:'shortTime' }}</time>
+              <time class="text-xs opacity-50 ml-1">{{ msg.sentAt | date: 'shortTime' }}</time>
             </div>
             <div
               class="chat-bubble"
-              [ngClass]="msg.senderId === userService.profile()?.username ? 'chat-bubble-primary' : 'chat-bubble-secondary'"
+              [ngClass]="
+                msg.senderId === userService.profile()?.id
+                  ? 'chat-bubble-primary'
+                  : 'chat-bubble-secondary'
+              "
             >
               {{ msg.content }}
             </div>
@@ -105,6 +114,7 @@
         <form (submit)="sendMessage(messageInput); $event.preventDefault()" class="flex gap-2">
           <input
             #messageInput
+            (input)="0"
             type="text"
             placeholder="Type your message..."
             class="input input-bordered flex-1 focus:input-primary"

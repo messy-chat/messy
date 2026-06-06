@@ -73,6 +73,7 @@ public class UserService(UserManager<User> userManager) : IUserService
     {
         return new ProfileDto
         {
+            Id = user.Id,
             Username = user.UserName ?? string.Empty,
             Email = user.Email ?? string.Empty,
             DisplayName = user.DisplayName,
