@@ -78,7 +78,13 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
             SenderName = m.Sender.DisplayName ?? m.Sender.UserName ?? "Unknown",
             Content = m.Content,
             SentAt = m.TimeStamp,
-            IsRead = false
+            IsRead = m.IsRead,
+            Attachments = m.Attachments.Select(a => new AttachmentDto
+            {
+                Url = a.Url,
+                Type = a.Type,
+                FileName = a.FileName
+            }).ToList()
         }).Reverse();
     }
 }

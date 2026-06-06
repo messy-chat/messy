@@ -1,7 +1,13 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Conversation, CreateGroupDto, Message, MessageDto } from '../models/conversation.model';
+import {
+  Attachment,
+  Conversation,
+  CreateGroupDto,
+  Message,
+  MessageDto,
+} from '../models/conversation.model';
 import { ApiResponse } from '../models/response.model';
 import { tap } from 'rxjs';
 import { ChatService } from './chat.service';
@@ -123,6 +129,15 @@ export class ConversationService {
 
   createGroup(dto: CreateGroupDto) {
     return this.http.post<ApiResponse<string>>(`${this.apiUrl}/group`, dto);
+  }
+
+  uploadAttachments(files: File[]) {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => formData.append('files', file));
+    return this.http.post<ApiResponse<Attachment[]>>(
+      `${environment.apiUrl}/files/upload`,
+      formData,
+    );
   }
 
   pushMessage(message: MessageDto) {

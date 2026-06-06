@@ -19,6 +19,7 @@ public class MessageRepository(MessyDbContext context) : IMessageRepository
 
         return await query
             .Include(m => m.Sender)
+            .Include(m => m.Attachments)
             .OrderByDescending(m => m.TimeStamp)
             .Take(pageSize)
             .ToListAsync();

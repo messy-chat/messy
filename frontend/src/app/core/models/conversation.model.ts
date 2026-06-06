@@ -1,3 +1,9 @@
+export interface Attachment {
+  url: string;
+  type: string;
+  fileName: string;
+}
+
 export interface Conversation {
   id: string;
   name: string;
@@ -13,6 +19,7 @@ export interface Message {
   content: string;
   sentAt: string;
   isRead: boolean;
+  attachments?: Attachment[];
 }
 
 export interface MessageDto {
@@ -23,6 +30,7 @@ export interface MessageDto {
   content: string;
   sentAt: string;
   isRead: boolean;
+  attachments?: Attachment[];
 }
 
 export interface CreateGroupDto {

@@ -1,7 +1,7 @@
 import { inject, Injectable, signal, NgZone } from '@angular/core';
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 import { environment } from '../../../environments/environment';
-import { MessageDto } from '../models/conversation.model';
+import { Attachment, MessageDto } from '../models/conversation.model';
 import { Subject } from 'rxjs';
 
 @Injectable({
@@ -81,7 +81,11 @@ export class ChatService {
     }
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<MessageDto> {
+  async sendMessage(
+    conversationId: string,
+    content: string,
+    attachments?: Attachment[],
+  ): Promise<MessageDto> {
     if (this.hubReadyPromise) {
       await this.hubReadyPromise;
       console.log('SignalR: Sending message to', conversationId);
@@ -89,6 +93,7 @@ export class ChatService {
         'SendMessage',
         conversationId,
         content,
+        attachments,
       );
       return this.ngZone.run(() => message!);
     }

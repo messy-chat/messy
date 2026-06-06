@@ -21,4 +21,6 @@ public class Message
 
     public Guid ConversationId { get; set; }
     public Conversation Conversation { get; set; } = null!;
+
+    public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 }

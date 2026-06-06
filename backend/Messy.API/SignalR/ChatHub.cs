@@ -42,9 +42,9 @@ public class ChatHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"room-{conversationId.ToString().ToLower()}");
     }
 
-    public async Task SendMessage(Guid conversationId, string content)
+    public async Task SendMessage(Guid conversationId, string? content, List<AttachmentDto>? attachments)
     {
-        if (string.IsNullOrWhiteSpace(content)) return;
+        if (string.IsNullOrWhiteSpace(content) && (attachments == null || attachments.Count == 0)) return;
 
         var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (currentUserId == null) throw new HubException("Unauthorized");
@@ -62,10 +62,23 @@ public class ChatHub : Hub
         {
             ConversationId = conversationId,
             SenderId = currentUserId,
-            Content = content,
+            Content = content ?? string.Empty,
             TimeStamp = DateTime.UtcNow,
             IsRead = false
         };
+
+        if (attachments != null && attachments.Count > 0)
+        {
+            foreach (var attachmentDto in attachments)
+            {
+                message.Attachments.Add(new Attachment
+                {
+                    Url = attachmentDto.Url,
+                    Type = attachmentDto.Type,
+                    FileName = attachmentDto.FileName
+                });
+            }
+        }
 
         _unitOfWork.Messages.Add(message);
 
@@ -78,7 +91,13 @@ public class ChatHub : Hub
                 SenderName = currentUser.DisplayName ?? currentUser.UserName ?? "Unknown",
                 Content = message.Content,
                 SentAt = message.TimeStamp,
-                IsRead = message.IsRead
+                IsRead = message.IsRead,
+                Attachments = message.Attachments.Select(a => new AttachmentDto
+                {
+                    Url = a.Url,
+                    Type = a.Type,
+                    FileName = a.FileName
+                }).ToList()
             };
 
             await Clients.Group($"room-{conversationId.ToString().ToLower()}").SendAsync("NewMessage", messageDto);

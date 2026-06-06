@@ -13,11 +13,18 @@ public class MessyDbContext : IdentityDbContext<User>
     public DbSet<Conversation> Conversations { get; set; }
     public DbSet<ConversationMember> ConversationMembers { get; set; }
     public DbSet<Message> Messages { get; set; }
+    public DbSet<Attachment> Attachments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<Attachment>()
+            .HasOne(a => a.Message)
+            .WithMany(m => m.Attachments)
+            .HasForeignKey(a => a.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         builder.Entity<ConversationMember>()
             .HasKey(cm => new { cm.UserId, cm.ConversationId });
 

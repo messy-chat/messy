@@ -22,6 +22,7 @@ builder.Services.AddDbContext<MessyDbContext>(options =>
 builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddCorsServices(builder.Configuration);
 builder.Services.AddPhotoServices(builder.Environment);
+builder.Services.AddScoped<IFileService, LocalFileService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<PresenceTracker>();

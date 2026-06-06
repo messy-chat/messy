@@ -98,6 +98,58 @@
               "
             >
               {{ msg.content }}
+
+              @if (msg.attachments && msg.attachments.length > 0) {
+                <div class="flex flex-wrap gap-2 mt-2 mb-2">
+                  @for (file of msg.attachments; track file.url) {
+                    <div class="attachment-item">
+                      @switch (file.type) {
+                        @case ('Image') {
+                          <img
+                            [src]="getFileUrl(file.url)"
+                            [alt]="file.fileName"
+                            class="max-w-[250px] rounded-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
+                          />
+                        }
+                        @case ('Video') {
+                          <video
+                            [src]="getFileUrl(file.url)"
+                            controls
+                            class="max-w-[300px] rounded-lg shadow-sm"
+                          ></video>
+                        }
+                        @case ('Audio') {
+                          <audio [src]="getFileUrl(file.url)" controls class="w-full max-w-[250px]"></audio>
+                        }
+                        @default {
+                          <a
+                            [href]="getFileUrl(file.url)"
+                            target="_blank"
+                            [download]="file.fileName"
+                            class="btn btn-sm btn-outline gap-2 normal-case"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                              />
+                            </svg>
+                            {{ file.fileName || 'Download' }}
+                          </a>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              }
             </div>
           </div>
         }
@@ -111,16 +163,71 @@
 
       <!-- Message Input -->
       <div class="p-4 border-t border-base-300 bg-base-200">
+        @if (pendingAttachments().length > 0) {
+          <div class="flex flex-wrap gap-2 mb-2 p-2 bg-base-100 rounded-lg border border-base-300">
+            @for (file of pendingAttachments(); track $index) {
+              <div class="badge badge-secondary gap-2 p-3">
+                <span class="text-xs truncate max-w-[150px]">{{ file.fileName }}</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  class="inline-block w-4 h-4 stroke-current cursor-pointer"
+                  (click)="removeAttachment($index)"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  ></path>
+                </svg>
+              </div>
+            }
+          </div>
+        }
+
         <form (submit)="sendMessage(messageInput); $event.preventDefault()" class="flex gap-2">
+          <input #fileInput type="file" class="hidden" multiple (change)="onFileSelected($event)" />
+          <button
+            type="button"
+            class="btn btn-circle btn-ghost"
+            (click)="fileInput.click()"
+            [disabled]="isUploading()"
+          >
+            @if (isUploading()) {
+              <span class="loading loading-spinner loading-xs"></span>
+            } @else {
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                />
+              </svg>
+            }
+          </button>
+
           <input
             #messageInput
-            (input)="0"
+            (input)="(0)"
             type="text"
             placeholder="Type your message..."
             class="input input-bordered flex-1 focus:input-primary"
             autocomplete="off"
           />
-          <button type="submit" class="btn btn-primary" [disabled]="!messageInput.value.trim()">
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="!messageInput.value.trim() && pendingAttachments().length === 0"
+          >
             Send
           </button>
         </form>
