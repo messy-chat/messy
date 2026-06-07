@@ -22,6 +22,7 @@ builder.Services.AddDbContext<MessyDbContext>(options =>
 builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddCorsServices(builder.Configuration);
 builder.Services.AddPhotoServices(builder.Environment);
+builder.Services.AddScoped<IFileService, LocalFileService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<PresenceTracker>();
@@ -44,13 +45,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapHub<ChatHub>("/hubs/chat");
-
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAngularApp");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.MapControllers();
 

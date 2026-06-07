@@ -1,0 +1,99 @@
+<div class="max-w-md mx-auto mt-10 p-6 bg-base-100 shadow-xl rounded-box border border-base-300">
+  <h2 class="text-2xl font-bold mb-6 text-center">Create Group</h2>
+
+  <form [formGroup]="groupForm" (ngSubmit)="onSubmit()" class="space-y-6">
+    <div class="form-control w-full">
+      <label class="label">
+        <span class="label-text">Group Name</span>
+      </label>
+      <input
+        type="text"
+        formControlName="name"
+        placeholder="Enter group name"
+        class="input input-bordered w-full"
+        [ngClass]="{
+          'input-error': groupForm.get('name')?.invalid && groupForm.get('name')?.touched,
+        }"
+      />
+      @if (groupForm.get('name')?.invalid && groupForm.get('name')?.touched) {
+        <label class="label">
+          <span class="label-text-alt text-error">Group name is required (min 3 chars)</span>
+        </label>
+      }
+    </div>
+
+    <div class="form-control w-full">
+      <label class="label">
+        <span class="label-text">Add Members</span>
+      </label>
+      <input
+        type="text"
+        (input)="onSearch($event)"
+        placeholder="Search users to add..."
+        class="input input-bordered w-full input-sm mb-2"
+      />
+
+      <div class="max-h-40 overflow-y-auto border border-base-200 rounded p-2 bg-base-200">
+        @for (user of searchResults(); track user.username) {
+          <div class="flex items-center justify-between p-2 hover:bg-base-300 rounded mb-1">
+            <span class="text-sm font-medium">{{ user.displayName }} ({{ user.username }})</span>
+            <button
+              type="button"
+              (click)="toggleUser(user)"
+              class="btn btn-xs"
+              [ngClass]="isUserSelected(user.id) ? 'btn-error' : 'btn-success'"
+            >
+              {{ isUserSelected(user.id) ? 'Remove' : 'Add' }}
+            </button>
+          </div>
+        } @empty {
+          @if (searchQuery().length >= 3) {
+            <p class="text-xs opacity-50 text-center p-2">No users found.</p>
+          } @else {
+            <p class="text-xs opacity-50 text-center p-2">Type at least 3 characters to search.</p>
+          }
+        }
+      </div>
+    </div>
+
+    @if (selectedUsers().length > 0) {
+      <div class="form-control w-full">
+        <label class="label">
+          <span class="label-text">Selected Members ({{ selectedUsers().length }})</span>
+        </label>
+        <div class="flex flex-wrap gap-2">
+          @for (user of selectedUsers(); track user.id) {
+            <div class="badge badge-primary gap-2 p-3">
+              {{ user.displayName }}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                class="inline-block w-4 h-4 stroke-current cursor-pointer"
+                (click)="toggleUser(user)"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="flex gap-2 pt-4">
+      <button
+        type="submit"
+        class="btn btn-primary flex-1"
+        [disabled]="groupForm.invalid || selectedUsers().length === 0"
+      >
+        Create Group
+      </button>
+      <button type="button" (click)="cancel()" class="btn btn-ghost">Cancel</button>
+    </div>
+  </form>
+</div>

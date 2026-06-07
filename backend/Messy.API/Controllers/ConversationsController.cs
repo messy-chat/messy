@@ -12,8 +12,46 @@ namespace Messy.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ConversationsController(IChatService chatService, UserManager<User> userManager) : ControllerBase
+public class ConversationsController(IChatService chatService, UserManager<User> userManager, IUnitOfWork unitOfWork) : ControllerBase
 {
+    [HttpPost("group")]
+    public async Task<ActionResult<ApiResponse<Guid>>> CreateGroupConversation([FromBody] CreateGroupDto createGroupDto)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+
+        if (!createGroupDto.MemberUserIds.Contains(currentUserId))
+        {
+            createGroupDto.MemberUserIds.Add(currentUserId);
+        }
+
+        var conversation = new Conversation
+        {
+            Title = createGroupDto.Name,
+            IsGroup = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        unitOfWork.Conversations.Add(conversation);
+
+        foreach (var userId in createGroupDto.MemberUserIds)
+        {
+            unitOfWork.Conversations.AddMember(new ConversationMember
+            {
+                UserId = userId,
+                Conversation = conversation,
+                JoinedAt = DateTime.UtcNow
+            });
+        }
+
+        if (await unitOfWork.CompleteAsync())
+        {
+            return Ok(ApiResponse<Guid>.Ok(conversation.Id));
+        }
+
+        return BadRequest(ApiResponse<Guid>.Fail("Wystąpił błąd podczas tworzenia grupy."));
+    }
+
     [HttpPost("private/{targetUsername}")]
     public async Task<ActionResult<ApiResponse<Guid>>> CreatePrivateConversation(string targetUsername)
     {
