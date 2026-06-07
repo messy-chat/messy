@@ -10,6 +10,7 @@ import { Subject } from 'rxjs';
 export class ChatService {
   private ngZone = inject(NgZone);
   onlineUsers = signal<string[]>([]);
+  typingUsers = signal<{ userId: string; displayName: string }[]>([]);
   private hubConnection: HubConnection | undefined;
   private messageReceivedSource = new Subject<MessageDto>();
   messageReceived$ = this.messageReceivedSource.asObservable();
@@ -57,6 +58,21 @@ export class ChatService {
         this.messageReceivedSource.next(message);
       });
     });
+
+    this.hubConnection.on('OnUserTyping', (data: { userId: string; displayName: string }) => {
+      this.ngZone.run(() => {
+        this.typingUsers.update((users) => {
+          if (users.find((x) => x.userId === data.userId)) return users;
+          return [...users, { userId: data.userId, displayName: data.displayName }];
+        });
+      });
+    });
+
+    this.hubConnection.on('OnUserStoppedTyping', (data: { userId: string }) => {
+      this.ngZone.run(() => {
+        this.typingUsers.update((users) => users.filter((x) => x.userId !== data.userId));
+      });
+    });
   }
 
   stopHubConnection() {
@@ -98,5 +114,23 @@ export class ChatService {
       return this.ngZone.run(() => message!);
     }
     return Promise.reject('Hub connection not established');
+  }
+
+  async notifyTyping(conversationId: string) {
+    if (this.hubReadyPromise) {
+      await this.hubReadyPromise;
+      await this.hubConnection?.invoke('UserTyping', conversationId);
+    }
+  }
+
+  async notifyStoppedTyping(conversationId: string) {
+    if (this.hubReadyPromise) {
+      await this.hubReadyPromise;
+      await this.hubConnection?.invoke('UserStoppedTyping', conversationId);
+    }
+  }
+
+  clearTypingUsers() {
+    this.typingUsers.set([]);
   }
 }

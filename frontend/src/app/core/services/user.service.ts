@@ -49,7 +49,9 @@ export class UserService {
     return this.http.post<ApiResponse<string>>(`${this.apiUrl}/photo`, formData).pipe(
       tap((res) => {
         if (res.success) {
-          this.profile.update((current) => (current ? { ...current, profilePictureUrl: res.data } : null));
+          this.profile.update((current) =>
+            current ? { ...current, profilePictureUrl: res.data } : null,
+          );
         }
       }),
     );

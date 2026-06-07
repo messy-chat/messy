@@ -7,4 +7,5 @@ public class ConversationDto
     public bool IsGroup { get; set; }
     public string? LastMessage { get; set; }
     public DateTime? LastMessageSentAt { get; set; }
+    public string? PictureUrl { get; set; }
 }

@@ -10,6 +10,7 @@ export interface Conversation {
   isGroup: boolean;
   lastMessage?: string;
   lastMessageSentAt?: string;
+  pictureUrl?: string;
 }
 
 export interface Message {
