@@ -1,0 +1,9 @@
+namespace Messy.API.DTOs;
+
+public class UserDto
+{
+    public Guid Id { get; set; } = Guid.Empty;
+    public string Username { get; set; } = null!;
+    public string? DisplayName { get; set; }
+    public string? AvatarUrl { get; set; }
+}

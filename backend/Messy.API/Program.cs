@@ -3,7 +3,6 @@ using Messy.API.Data;
 using Messy.API.Interfaces;
 using Messy.API.Middleware;
 using Messy.API.Services;
-using Messy.API.Services.Chat;
 using Messy.API.SignalR;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,7 +27,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<PresenceTracker>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IConversationService, ConversationService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddControllers();

@@ -1,10 +1,8 @@
 using System.Security.Claims;
 using Messy.API.DTOs;
 using Messy.API.Interfaces;
-using Messy.API.Models;
 using Messy.API.Wrappers;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Messy.API.Controllers;
@@ -12,261 +10,214 @@ namespace Messy.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ConversationsController(IChatService chatService, UserManager<User> userManager, IUnitOfWork unitOfWork, IPhotoService photoService) : ControllerBase
+public class ConversationsController(
+    IConversationService conversationService, 
+    IMessageService messageService,
+    IPhotoService photoService, 
+    IUserService userService) : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<ApiResponse<IEnumerable<ConversationDto>>>> GetMyConversations()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
+
+        var conversations = await conversationService.GetUserConversationsAsync(currentUserId);
+        return Ok(ApiResponse<IEnumerable<ConversationDto>>.Ok(conversations));
+    }
+
     [HttpPost("group")]
     public async Task<ActionResult<ApiResponse<Guid>>> CreateGroupConversation([FromBody] CreateGroupDto createGroupDto)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        if (!createGroupDto.MemberUserIds.Contains(currentUserId))
+        try
         {
-            createGroupDto.MemberUserIds.Add(currentUserId);
+            var memberIds = createGroupDto.MemberUserIds.Select(Guid.Parse).ToList();
+            var conversationId = await conversationService.CreateGroupConversationAsync(currentUserId, createGroupDto.Name, memberIds);
+            return Ok(ApiResponse<Guid>.Ok(conversationId));
         }
-
-        var conversation = new Conversation
+        catch (Exception ex)
         {
-            Title = createGroupDto.Name,
-            IsGroup = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        unitOfWork.Conversations.Add(conversation);
-
-        foreach (var userId in createGroupDto.MemberUserIds)
-        {
-            unitOfWork.Conversations.AddMember(new ConversationMember
-            {
-                UserId = userId,
-                Conversation = conversation,
-                JoinedAt = DateTime.UtcNow,
-                IsAdmin = userId == currentUserId
-            });
+            return BadRequest(ApiResponse<Guid>.Fail(ex.Message));
         }
-
-        if (await unitOfWork.CompleteAsync())
-        {
-            return Ok(ApiResponse<Guid>.Ok(conversation.Id));
-        }
-
-        return BadRequest(ApiResponse<Guid>.Fail("Wystąpił błąd podczas tworzenia grupy."));
     }
 
     [HttpPost("{conversationId}/image")]
     [RequestSizeLimit(10485760)]
     public async Task<ActionResult<ApiResponse<string>>> UploadGroupImage(Guid conversationId, IFormFile file)
     {
-        if (file == null || file.Length == 0) return BadRequest(ApiResponse<string>.Fail("Nie przesłano żadnego pliku."));
+        if (file == null || file.Length == 0) return BadRequest(ApiResponse<string>.Fail("No file uploaded."));
 
         const long maxFileSize = 10 * 1024 * 1024; // 10 MB
         if (file.Length > maxFileSize)
         {
-            return BadRequest(ApiResponse<string>.Fail("Plik przekracza maksymalny dopuszczalny rozmiar 10 MB."));
+            return BadRequest(ApiResponse<string>.Fail("File exceeds the maximum allowed size of 10 MB."));
         }
 
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null) return NotFound(ApiResponse<string>.Fail("Konwersacja nie została znaleziona."));
-        if (!conversation.IsGroup) return BadRequest(ApiResponse<string>.Fail("Tylko grupy mogą mieć zdjęcia."));
-
-        var currentUserMember = conversation.Members.FirstOrDefault(m => m.UserId == currentUserId);
-        if (currentUserMember == null || !currentUserMember.IsAdmin)
+        try
+        {
+            var imageUrl = await photoService.UploadPhotoAsync(file);
+            var success = await conversationService.ChangeConversationImageAsync(conversationId, currentUserId, imageUrl);
+            
+            if (success) return Ok(ApiResponse<string>.Ok(imageUrl));
+            return BadRequest(ApiResponse<string>.Fail("Failed to update group image."));
+        }
+        catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
-
-        var imageUrl = await photoService.UploadPhotoAsync(file);
-        conversation.ImageUrl = imageUrl;
-
-        if (await unitOfWork.CompleteAsync())
+        catch (Exception ex)
         {
-            return Ok(ApiResponse<string>.Ok(imageUrl));
+            return BadRequest(ApiResponse<string>.Fail(ex.Message));
         }
-
-        return BadRequest(ApiResponse<string>.Fail("Wystąpił błąd podczas zapisywania zdjęcia grupy."));
     }
 
     [HttpPut("{conversationId}/name")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateConversationName(Guid conversationId, [FromBody] UpdateConversationNameDto updateDto)
     {
-        if (string.IsNullOrWhiteSpace(updateDto.Name)) return BadRequest(ApiResponse<object>.Fail("Nazwa nie może być pusta."));
+        if (string.IsNullOrWhiteSpace(updateDto.Name)) return BadRequest(ApiResponse<object>.Fail("Name cannot be empty."));
 
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null) return NotFound(ApiResponse<object>.Fail("Konwersacja nie została znaleziona."));
-
-        if (conversation.IsGroup)
+        try
         {
-            var currentUserMember = conversation.Members.FirstOrDefault(m => m.UserId == currentUserId);
-            if (currentUserMember == null || !currentUserMember.IsAdmin)
-            {
-                return Forbid();
-            }
-            conversation.Title = updateDto.Name;
+            var success = await conversationService.ChangeConversationNameAsync(conversationId, currentUserId, updateDto.Name);
+            if (success) return Ok(ApiResponse<object>.Ok(null, "Conversation name updated."));
+            return BadRequest(ApiResponse<object>.Fail("Failed to update conversation name."));
         }
-        else
+        catch (UnauthorizedAccessException)
         {
-            // For private conversations, usually we don't rename them as the name is derived from the other user,
-            // but if the business logic allows it, we could. For now, let's restrict to groups or allow only if member.
-            if (!conversation.Members.Any(m => m.UserId == currentUserId)) return Forbid();
-            conversation.Title = updateDto.Name;
+            return Forbid();
         }
-
-        if (await unitOfWork.CompleteAsync())
+        catch (Exception ex)
         {
-            return Ok(ApiResponse<object>.Ok(null, "Nazwa konwersacji została zaktualizowana."));
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
         }
-
-        return BadRequest(ApiResponse<object>.Fail("Wystąpił błąd podczas aktualizacji nazwy."));
     }
 
     [HttpPost("{conversationId}/members")]
     public async Task<ActionResult<ApiResponse<bool>>> AddMember(Guid conversationId, [FromBody] AddMemberDto addMemberDto)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null) return NotFound(ApiResponse<bool>.Fail("Konwersacja nie została znaleziona."));
-        if (!conversation.IsGroup) return BadRequest(ApiResponse<bool>.Fail("Ta konwersacja nie jest grupą."));
-
-        var currentUserMember = conversation.Members.FirstOrDefault(m => m.UserId == currentUserId);
-        if (currentUserMember == null || !currentUserMember.IsAdmin)
+        try
+        {
+            var targetUserId = Guid.Parse(addMemberDto.UserId);
+            var success = await conversationService.AddMemberAsync(conversationId, currentUserId, targetUserId);
+            if (success) return Ok(ApiResponse<bool>.Ok(true));
+            return BadRequest(ApiResponse<bool>.Fail("Failed to add user to group."));
+        }
+        catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
-
-        var targetUser = await userManager.FindByIdAsync(addMemberDto.UserId);
-        if (targetUser == null)
+        catch (Exception ex)
         {
-            return NotFound(ApiResponse<bool>.Fail("Użytkownik, którego chcesz dodać, nie istnieje."));
+            return BadRequest(ApiResponse<bool>.Fail(ex.Message));
         }
-
-        if (conversation.Members.Any(m => m.UserId == addMemberDto.UserId))
-        {
-            return BadRequest(ApiResponse<bool>.Fail("Użytkownik jest już członkiem tej grupy."));
-        }
-
-        unitOfWork.Conversations.AddMember(new ConversationMember
-        {
-            UserId = addMemberDto.UserId,
-            ConversationId = conversationId,
-            JoinedAt = DateTime.UtcNow,
-            IsAdmin = false
-        });
-
-        if (await unitOfWork.CompleteAsync()) return Ok(ApiResponse<bool>.Ok(true));
-
-        return BadRequest(ApiResponse<bool>.Fail("Nie udało się dodać użytkownika do grupy."));
     }
 
     [HttpDelete("{conversationId}/members/{targetUserId}")]
     public async Task<ActionResult<ApiResponse<object>>> RemoveMember(Guid conversationId, string targetUserId)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null) return NotFound(ApiResponse<object>.Fail("Konwersacja nie została znaleziona."));
-        
-        var currentUserMember = conversation.Members.FirstOrDefault(m => m.UserId == currentUserId);
-        if (currentUserMember == null || !currentUserMember.IsAdmin)
+        try
+        {
+            var targetId = Guid.Parse(targetUserId);
+            var success = await conversationService.RemoveMemberAsync(conversationId, currentUserId, targetId);
+            if (success) return Ok(ApiResponse<object>.Ok(null, "User removed from group."));
+            return BadRequest(ApiResponse<object>.Fail("Failed to remove user."));
+        }
+        catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
-
-        var targetMember = conversation.Members.FirstOrDefault(m => m.UserId == targetUserId);
-        if (targetMember == null) return NotFound(ApiResponse<object>.Fail("Użytkownik nie jest członkiem tej grupy."));
-
-        conversation.Members.Remove(targetMember);
-
-        if (await unitOfWork.CompleteAsync()) return Ok(ApiResponse<object>.Ok(null, "Użytkownik został usunięty z grupy."));
-
-        return BadRequest(ApiResponse<object>.Fail("Nie udało się usunąć użytkownika."));
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 
     [HttpDelete("{conversationId}/leave")]
     public async Task<ActionResult<ApiResponse<object>>> LeaveGroup(Guid conversationId)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null) return NotFound(ApiResponse<object>.Fail("Konwersacja nie została znaleziona."));
-        if (!conversation.IsGroup) return BadRequest(ApiResponse<object>.Fail("Możesz opuścić tylko grupy."));
-
-        var member = conversation.Members.FirstOrDefault(m => m.UserId == currentUserId);
-        if (member == null) return BadRequest(ApiResponse<object>.Fail("Nie jesteś członkiem tej grupy."));
-
-        conversation.Members.Remove(member);
-
-        if (await unitOfWork.CompleteAsync()) return Ok(ApiResponse<object>.Ok(null, "Opuściłeś grupę."));
-
-        return BadRequest(ApiResponse<object>.Fail("Nie udało się opuścić grupy."));
+        try
+        {
+            var success = await conversationService.LeaveConversationAsync(conversationId, currentUserId);
+            if (success) return Ok(ApiResponse<object>.Ok(null, "You left the group."));
+            return BadRequest(ApiResponse<object>.Fail("Failed to leave group."));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<object>.Fail(ex.Message));
+        }
     }
 
     [HttpPost("private/{targetUsername}")]
     public async Task<ActionResult<ApiResponse<Guid>>> CreatePrivateConversation(string targetUsername)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var targetUser = await userManager.FindByNameAsync(targetUsername);
-        if (targetUser == null)
+        var targetUserId = await userService.GetUserIdByUsernameAsync(targetUsername);
+        if (targetUserId == null)
         {
-            return NotFound(ApiResponse<Guid>.Fail("Użytkownik nie został znaleziony."));
+            return NotFound(ApiResponse<Guid>.Fail("User not found."));
         }
 
-        if (currentUserId == targetUser.Id)
+        if (currentUserId == targetUserId.Value)
         {
-            return BadRequest(ApiResponse<Guid>.Fail("Nie możesz rozpocząć czatu ze samym sobą."));
+            return BadRequest(ApiResponse<Guid>.Fail("You cannot start a chat with yourself."));
         }
 
-        var conversationId = await chatService.GetOrCreatePrivateConversationAsync(currentUserId, targetUser.Id);
+        var conversationId = await conversationService.CreatePrivateConversationAsync(currentUserId, targetUserId.Value);
         return Ok(ApiResponse<Guid>.Ok(conversationId));
     }
 
-    [HttpGet]
-    public async Task<ActionResult<ApiResponse<IEnumerable<ConversationDto>>>> GetMyConversations()
-    {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
-
-        var conversations = await chatService.GetUserConversationsAsync(currentUserId);
-        return Ok(ApiResponse<IEnumerable<ConversationDto>>.Ok(conversations));
-    }
-
     [HttpGet("{conversationId}")]
-    public async Task<ActionResult<ApiResponse<ConversationDto>>> GetConversation(Guid conversationId)
+    public async Task<ActionResult<ApiResponse<ConversationDetailsDto>>> GetConversation(Guid conversationId)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
-        var conversation = await chatService.GetConversationAsync(conversationId, currentUserId);
-        if (conversation == null) return NotFound(ApiResponse<ConversationDto>.Fail("Konwersacja nie została znaleziona lub nie masz do niej dostępu."));
+        var conversation = await conversationService.GetConversationDetailsAsync(conversationId, currentUserId);
+        if (conversation == null) return NotFound(ApiResponse<ConversationDetailsDto>.Fail("Conversation not found or access denied."));
 
-        return Ok(ApiResponse<ConversationDto>.Ok(conversation));
+        return Ok(ApiResponse<ConversationDetailsDto>.Ok(conversation));
     }
 
     [HttpGet("{conversationId}/messages")]
     public async Task<ActionResult<ApiResponse<IEnumerable<MessageDto>>>> GetMessages(Guid conversationId, [FromQuery] Guid? beforeMessageId = null, [FromQuery] int pageSize = 50)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(currentUserId)) return Unauthorized();
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return Unauthorized();
 
         try
         {
-            var messages = await chatService.GetConversationMessagesAsync(conversationId, currentUserId, beforeMessageId, pageSize);
+            var messages = await messageService.GetConversationMessagesAsync(conversationId, currentUserId, beforeMessageId, pageSize);
             return Ok(ApiResponse<IEnumerable<MessageDto>>.Ok(messages));
         }
         catch (UnauthorizedAccessException)
         {
             return Forbid();
         }
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return string.IsNullOrEmpty(userIdStr) ? Guid.Empty : Guid.Parse(userIdStr);
     }
 }
