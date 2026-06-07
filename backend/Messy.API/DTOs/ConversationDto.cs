@@ -8,4 +8,5 @@ public class ConversationDto
     public string? LastMessage { get; set; }
     public DateTime? LastMessageSentAt { get; set; }
     public string? PictureUrl { get; set; }
+    public List<ConversationMemberDto> Members { get; set; } = new();
 }

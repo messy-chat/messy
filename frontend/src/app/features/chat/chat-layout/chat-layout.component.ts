@@ -7,13 +7,14 @@ import {
   ViewChild,
   ElementRef,
   effect,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { UserService } from '../../../core/services/user.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { Profile } from '../../../core/models/profile.model';
-import { Attachment, Message } from '../../../core/models/conversation.model';
+import { Attachment, Conversation } from '../../../core/models/conversation.model';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { RouterLink } from '@angular/router';
@@ -49,14 +50,14 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   }
 
   getConversationAvatar(conv: any) {
-    if (conv.pictureUrl) {
+    if (conv?.pictureUrl) {
       return this.getFileUrl(conv.pictureUrl);
     }
     return this.userService.defaultAvatar;
   }
 
-  getUserAvatar(user: Profile) {
-    if (user.profilePictureUrl) {
+  getUserAvatar(user: Profile | null) {
+    if (user?.profilePictureUrl) {
       return this.getFileUrl(user.profilePictureUrl);
     }
     return this.userService.defaultAvatar;
@@ -75,6 +76,17 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   searchResults = signal<Profile[]>([]);
   pendingAttachments = signal<Attachment[]>([]);
   isUploading = signal(false);
+  showGroupInfo = signal(false);
+  activeConversation = signal<Conversation | null>(null);
+  memberSearchQuery = signal('');
+  memberSearchResults = signal<Profile[]>([]);
+
+  isAdmin = computed(() => {
+    const me = this.userService.profile();
+    const conv = this.activeConversation();
+    if (!me || !conv || !conv.members) return false;
+    return conv.members.find((m) => m.userId === me.id)?.isAdmin || false;
+  });
 
   ngOnInit(): void {
     this.conversationService.loadMyConversations();
@@ -107,6 +119,69 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     this.chatService.clearTypingUsers();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  loadActiveConversationDetails(id: string) {
+    this.conversationService.getConversation(id).subscribe((res) => {
+      if (res.success) {
+        this.activeConversation.set(res.data);
+      }
+    });
+  }
+
+  onMemberSearch() {
+    const query = this.memberSearchQuery().trim();
+    if (query.length >= 2) {
+      this.userService.searchUsers(query).subscribe((res) => {
+        if (res.success) {
+          // Filter out existing members
+          const members = this.activeConversation()?.members || [];
+          this.memberSearchResults.set(
+            res.data.filter((u) => !members.find((m) => m.userId === u.id)),
+          );
+        }
+      });
+    } else {
+      this.memberSearchResults.set([]);
+    }
+  }
+
+  addMember(userId: string) {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.addGroupMember(convId, userId).subscribe((res) => {
+        if (res.success) {
+          this.loadActiveConversationDetails(convId);
+          this.memberSearchQuery.set('');
+          this.memberSearchResults.set([]);
+        }
+      });
+    }
+  }
+
+  removeMember(userId: string) {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.removeGroupMember(convId, userId).subscribe((res) => {
+        if (res.success) {
+          this.loadActiveConversationDetails(convId);
+        }
+      });
+    }
+  }
+
+  leaveGroup() {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.leaveGroup(convId).subscribe((res) => {
+        if (res.success) {
+          this.conversationService.activeConversationId.set(null);
+          this.activeConversation.set(null);
+          this.showGroupInfo.set(false);
+          this.conversationService.loadMyConversations();
+        }
+      });
+    }
   }
 
   onSearch() {
@@ -219,11 +294,13 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     }
 
     this.chatService.clearTypingUsers();
+    this.showGroupInfo.set(false);
     this.conversationService.loadMyConversations();
     this.conversationService.loadInitialHistory(id).subscribe(() => {
       this.chatService.joinRoom(id);
       this.isNearBottom = true;
       this.scrollToBottom();
+      this.loadActiveConversationDetails(id);
     });
   }
 
