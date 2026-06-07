@@ -304,6 +304,36 @@
               <button (click)="showGroupInfo.set(false)" class="btn btn-ghost btn-sm btn-circle">✕</button>
             </div>
 
+            <!-- Group Avatar -->
+            <div class="flex flex-col items-center gap-4">
+              <div class="avatar">
+                <div class="rounded-full w-24 ring ring-primary ring-offset-base-100 ring-offset-2">
+                  <img
+                    [src]="getConversationAvatar(activeConversation())"
+                    [alt]="activeConversation()?.name"
+                    (error)="$any($event.target).src = userService.defaultAvatar"
+                  />
+                </div>
+              </div>
+              <h2 class="text-xl font-bold text-center">{{ activeConversation()?.name }}</h2>
+
+              @if (isAdmin()) {
+                <input
+                  type="file"
+                  class="hidden"
+                  accept="image/*"
+                  #groupImageInput
+                  (change)="onGroupImageSelected($event)"
+                />
+                <button
+                  class="btn btn-primary btn-sm btn-outline"
+                  (click)="groupImageInput.click()"
+                >
+                  Change Photo
+                </button>
+              }
+            </div>
+
             <!-- Add Member (Admin Only) -->
             @if (isAdmin()) {
               <div class="flex flex-col gap-2">
@@ -320,7 +350,14 @@
                     <div class="absolute z-20 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-40 overflow-y-auto border border-base-300">
                       @for (user of memberSearchResults(); track user.id) {
                         <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
-                          <span class="text-sm truncate">{{ user.displayName }}</span>
+                          <div class="flex items-center gap-2">
+                            <div class="avatar">
+                              <div class="rounded-full w-6">
+                                <img [src]="getUserAvatar(user)" [alt]="user.displayName" />
+                              </div>
+                            </div>
+                            <span class="text-sm truncate max-w-[120px]">{{ user.displayName }}</span>
+                          </div>
                           <button (click)="addMember(user.id)" class="btn btn-primary btn-xs">Add</button>
                         </div>
                       }

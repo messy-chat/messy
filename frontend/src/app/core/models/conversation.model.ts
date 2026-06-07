@@ -19,6 +19,7 @@ export interface Conversation {
   lastMessage?: string;
   lastMessageSentAt?: string;
   pictureUrl?: string;
+  imageUrl?: string;
   members?: ConversationMember[];
 }
 

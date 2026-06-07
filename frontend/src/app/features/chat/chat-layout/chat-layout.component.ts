@@ -14,7 +14,10 @@ import { ConversationService } from '../../../core/services/conversation.service
 import { UserService } from '../../../core/services/user.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { Profile } from '../../../core/models/profile.model';
-import { Attachment, Conversation } from '../../../core/models/conversation.model';
+import {
+  Attachment,
+  Conversation,
+} from '../../../core/models/conversation.model';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { RouterLink } from '@angular/router';
@@ -50,10 +53,11 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   }
 
   getConversationAvatar(conv: any) {
-    if (conv?.pictureUrl) {
-      return this.getFileUrl(conv.pictureUrl);
+    if (conv?.isGroup) {
+      return this.getFileUrl(conv.imageUrl!);
     }
-    return this.userService.defaultAvatar;
+    const otherMember = conv?.members!.find((m: any) => m.userId != this.userService.profile()?.id)!;
+    return this.getUserAvatar(otherMember)
   }
 
   getUserAvatar(user: Profile | null) {
@@ -149,11 +153,50 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   addMember(userId: string) {
     const convId = this.conversationService.activeConversationId();
     if (convId) {
-      this.conversationService.addGroupMember(convId, userId).subscribe((res) => {
+      this.conversationService.addMemberToGroup(convId, userId).subscribe((res) => {
         if (res.success) {
-          this.loadActiveConversationDetails(convId);
+          // Locally update the member list signal
+          const userToAdd = this.memberSearchResults().find((u) => u.id === userId);
+          if (userToAdd) {
+            this.activeConversation.update((current) => {
+              if (!current) return null;
+              const newMember = {
+                userId: userToAdd.id,
+                userName: userToAdd.username,
+                displayName: userToAdd.displayName || userToAdd.username,
+                pictureUrl: userToAdd.profilePictureUrl,
+                isAdmin: false,
+              };
+              return {
+                ...current,
+                members: [...(current.members || []), newMember],
+              };
+            });
+          }
+
           this.memberSearchQuery.set('');
           this.memberSearchResults.set([]);
+          this.conversationService.loadMyConversations();
+        }
+      });
+    }
+  }
+
+  onGroupImageSelected(event: any) {
+    const file: File = event.target.files[0];
+    const convId = this.conversationService.activeConversationId();
+    if (file && convId) {
+      this.conversationService.uploadGroupImage(convId, file).subscribe((res) => {
+        if (res.success) {
+          const newImageUrl = res.data;
+          // Update active conversation signal
+          this.activeConversation.update((current) =>
+            current ? { ...current, imageUrl: newImageUrl } : null,
+          );
+          // Update global conversations signal
+          this.conversationService.conversations.update((list) =>
+            list.map((c) => (c.id === convId ? { ...c, imageUrl: newImageUrl } : c)),
+          );
         }
       });
     }

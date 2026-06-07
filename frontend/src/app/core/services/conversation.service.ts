@@ -134,6 +134,16 @@ export class ConversationService {
     return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/${conversationId}/leave`);
   }
 
+  uploadGroupImage(conversationId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ApiResponse<string>>(`${this.apiUrl}/${conversationId}/image`, formData);
+  }
+
+  addMemberToGroup(conversationId: string, userId: string) {
+    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/${conversationId}/members`, { userId });
+  }
+
   uploadAttachments(files: File[]) {
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append('files', file));

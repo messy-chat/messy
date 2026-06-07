@@ -57,7 +57,7 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
                 IsGroup = c.IsGroup,
                 LastMessage = lastMessage?.Content,
                 LastMessageSentAt = lastMessage?.TimeStamp,
-                PictureUrl = pictureUrl,
+                ImageUrl = c.ImageUrl,
                 Members = c.Members.Select(m => new ConversationMemberDto
                 {
                     UserId = m.UserId,
@@ -79,13 +79,11 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
         var lastMessage = conversation.Messages.OrderByDescending(m => m.TimeStamp).FirstOrDefault();
 
         string name = conversation.Title ?? "Unknown";
-        string? pictureUrl = string.Empty;
 
         if (!conversation.IsGroup)
         {
             var otherMember = conversation.Members.FirstOrDefault(m => m.UserId != userId);
             name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
-            pictureUrl = otherMember?.User.ProfilePictureUrl;
         }
 
         return new ConversationDto
@@ -95,7 +93,7 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
             IsGroup = conversation.IsGroup,
             LastMessage = lastMessage?.Content,
             LastMessageSentAt = lastMessage?.TimeStamp,
-            PictureUrl = pictureUrl,
+            ImageUrl = conversation.ImageUrl,
             Members = conversation.Members.Select(m => new ConversationMemberDto
             {
                 UserId = m.UserId,
