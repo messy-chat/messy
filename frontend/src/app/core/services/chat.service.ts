@@ -24,7 +24,7 @@ export class ChatService {
       .withUrl(environment.apiUrl.replace('/api', '') + '/hubs/chat', {
         accessTokenFactory: () => token,
       })
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
       .build();
 
     this.hubReadyPromise = this.hubConnection

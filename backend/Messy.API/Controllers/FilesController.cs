@@ -12,6 +12,7 @@ namespace Messy.API.Controllers;
 public class FilesController(IFileService fileService) : ControllerBase
 {
     [HttpPost("upload")]
+    [RequestSizeLimit(10485760)]
     public async Task<ActionResult<ApiResponse<List<AttachmentDto>>>> UploadFiles(List<IFormFile> files)
     {
         if (files == null || files.Count == 0)
@@ -19,10 +20,16 @@ public class FilesController(IFileService fileService) : ControllerBase
             return BadRequest(ApiResponse<List<AttachmentDto>>.Fail("Nie przesłano żadnych plików."));
         }
 
+        const long maxFileSize = 10 * 1024 * 1024; // 10 MB
         var attachments = new List<AttachmentDto>();
 
         foreach (var file in files)
         {
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest(ApiResponse<List<AttachmentDto>>.Fail($"Plik {file.FileName} przekracza maksymalny dopuszczalny rozmiar 10 MB."));
+            }
+
             var url = await fileService.SaveFileAsync(file);
             var type = GetFileType(file.ContentType);
 

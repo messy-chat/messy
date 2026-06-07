@@ -37,11 +37,18 @@ public class UserController(IUserService userService, IPhotoService photoService
     }
 
     [HttpPost("photo")]
+    [RequestSizeLimit(10485760)]
     public async Task<ActionResult<ApiResponse<string>>> UploadProfilePicture(IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
             return BadRequest(ApiResponse<string>.Fail("No file uploaded."));
+        }
+
+        const long maxFileSize = 10 * 1024 * 1024; // 10 MB
+        if (file.Length > maxFileSize)
+        {
+            return BadRequest(ApiResponse<string>.Fail("The file exceeds the maximum allowed size of 10 MB."));
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
