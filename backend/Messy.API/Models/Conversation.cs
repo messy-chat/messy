@@ -6,6 +6,7 @@ public class Conversation
     public string? Title { get; set; }
     public bool IsGroup { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? ImageUrl { get; set; }
 
     public ICollection<ConversationMember> Members { get; set; } = new List<ConversationMember>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();

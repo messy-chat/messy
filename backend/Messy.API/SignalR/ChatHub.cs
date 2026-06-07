@@ -87,6 +87,7 @@ public class ChatHub : Hub
             var messageDto = new MessageDto
             {
                 Id = message.Id,
+                ConversationId = conversationId,
                 SenderId = message.SenderId,
                 SenderName = currentUser.DisplayName ?? currentUser.UserName ?? "Unknown",
                 Content = message.Content,
@@ -100,7 +101,8 @@ public class ChatHub : Hub
                 }).ToList()
             };
 
-            await Clients.Group($"room-{conversationId.ToString().ToLower()}").SendAsync("NewMessage", messageDto);
+            var memberIds = conversation.Members.Select(m => m.UserId).ToList();
+            await Clients.Users(memberIds).SendAsync("NewMessage", messageDto);
         }
     }
 

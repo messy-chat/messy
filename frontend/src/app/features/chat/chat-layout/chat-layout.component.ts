@@ -1,10 +1,23 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  OnDestroy,
+  signal,
+  ViewChild,
+  ElementRef,
+  effect,
+  computed,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { UserService } from '../../../core/services/user.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { Profile } from '../../../core/models/profile.model';
-import { Attachment } from '../../../core/models/conversation.model';
+import {
+  Attachment,
+  Conversation,
+} from '../../../core/models/conversation.model';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { RouterLink } from '@angular/router';
@@ -17,6 +30,20 @@ import { environment } from '../../../../environments/environment';
   templateUrl: './chat-layout.component.html',
 })
 export class ChatLayoutComponent implements OnInit, OnDestroy {
+  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
+  private isNearBottom: boolean = true;
+
+  constructor() {
+    effect(() => {
+      const msgs = this.conversationService.messages();
+      if (this.isNearBottom && msgs.length > 0) {
+        setTimeout(() => {
+          this.scrollToBottom();
+        }, 0);
+      }
+    });
+  }
+
   getFileUrl(url: string) {
     if (!environment.production) {
       return `${environment.baseUrl}/${url}`;
@@ -26,14 +53,15 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   }
 
   getConversationAvatar(conv: any) {
-    if (conv.pictureUrl) {
-      return this.getFileUrl(conv.pictureUrl);
+    if (conv?.isGroup) {
+      return this.getFileUrl(conv.imageUrl!);
     }
-    return this.userService.defaultAvatar;
+    const otherMember = conv?.members!.find((m: any) => m.userId != this.userService.profile()?.id)!;
+    return this.getUserAvatar(otherMember)
   }
 
-  getUserAvatar(user: Profile) {
-    if (user.profilePictureUrl) {
+  getUserAvatar(user: Profile | null) {
+    if (user?.profilePictureUrl) {
       return this.getFileUrl(user.profilePictureUrl);
     }
     return this.userService.defaultAvatar;
@@ -52,6 +80,17 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
   searchResults = signal<Profile[]>([]);
   pendingAttachments = signal<Attachment[]>([]);
   isUploading = signal(false);
+  showGroupInfo = signal(false);
+  activeConversation = signal<Conversation | null>(null);
+  memberSearchQuery = signal('');
+  memberSearchResults = signal<Profile[]>([]);
+
+  isAdmin = computed(() => {
+    const me = this.userService.profile();
+    const conv = this.activeConversation();
+    if (!me || !conv || !conv.members) return false;
+    return conv.members.find((m) => m.userId === me.id)?.isAdmin || false;
+  });
 
   ngOnInit(): void {
     this.conversationService.loadMyConversations();
@@ -86,8 +125,140 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  loadActiveConversationDetails(id: string) {
+    this.conversationService.getConversation(id).subscribe((res) => {
+      if (res.success) {
+        this.activeConversation.set(res.data);
+      }
+    });
+  }
+
+  onMemberSearch() {
+    const query = this.memberSearchQuery().trim();
+    if (query.length >= 2) {
+      this.userService.searchUsers(query).subscribe((res) => {
+        if (res.success) {
+          // Filter out existing members
+          const members = this.activeConversation()?.members || [];
+          this.memberSearchResults.set(
+            res.data.filter((u) => !members.find((m) => m.userId === u.id)),
+          );
+        }
+      });
+    } else {
+      this.memberSearchResults.set([]);
+    }
+  }
+
+  addMember(userId: string) {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.addMemberToGroup(convId, userId).subscribe((res) => {
+        if (res.success) {
+          // Locally update the member list signal
+          const userToAdd = this.memberSearchResults().find((u) => u.id === userId);
+          if (userToAdd) {
+            this.activeConversation.update((current) => {
+              if (!current) return null;
+              const newMember = {
+                userId: userToAdd.id,
+                userName: userToAdd.username,
+                displayName: userToAdd.displayName || userToAdd.username,
+                pictureUrl: userToAdd.profilePictureUrl,
+                isAdmin: false,
+              };
+              return {
+                ...current,
+                members: [...(current.members || []), newMember],
+              };
+            });
+          }
+
+          this.memberSearchQuery.set('');
+          this.memberSearchResults.set([]);
+          this.conversationService.loadMyConversations();
+        }
+      });
+    }
+  }
+
+  onGroupImageSelected(event: any) {
+    const file: File = event.target.files[0];
+    const convId = this.conversationService.activeConversationId();
+    if (file && convId) {
+      this.conversationService.uploadGroupImage(convId, file).subscribe((res) => {
+        if (res.success) {
+          const newImageUrl = res.data;
+          // Update active conversation signal
+          this.activeConversation.update((current) =>
+            current ? { ...current, imageUrl: newImageUrl } : null,
+          );
+          // Update global conversations signal
+          this.conversationService.conversations.update((list) =>
+            list.map((c) => (c.id === convId ? { ...c, imageUrl: newImageUrl } : c)),
+          );
+        }
+      });
+    }
+  }
+
+  removeMember(userId: string) {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.removeGroupMember(convId, userId).subscribe((res) => {
+        if (res.success) {
+          this.loadActiveConversationDetails(convId);
+        }
+      });
+    }
+  }
+
+  leaveGroup() {
+    const convId = this.conversationService.activeConversationId();
+    if (convId) {
+      this.conversationService.leaveGroup(convId).subscribe((res) => {
+        if (res.success) {
+          this.conversationService.activeConversationId.set(null);
+          this.activeConversation.set(null);
+          this.showGroupInfo.set(false);
+          this.conversationService.loadMyConversations();
+        }
+      });
+    }
+  }
+
   onSearch() {
     this.searchSubject.next(this.searchQuery());
+  }
+
+  onScroll(event: any) {
+    const element = event.target as HTMLElement;
+
+    // Detect if user is near bottom (50px tolerance)
+    this.isNearBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 50;
+
+    // Pagination logic (load older messages)
+    if (element.scrollTop === 0) {
+      const activeId = this.conversationService.activeConversationId();
+      const messages = this.conversationService.messages();
+
+      if (
+        activeId &&
+        messages.length > 0 &&
+        !this.conversationService.isLoadingHistory() &&
+        this.conversationService.hasMoreMessages()
+      ) {
+        const prevScrollHeight = element.scrollHeight;
+        const firstMessageId = messages[0].id;
+
+        this.conversationService.loadOlderMessages(activeId, firstMessageId).subscribe(() => {
+          // Maintain scroll position after prepending messages
+          setTimeout(() => {
+            element.scrollTop = element.scrollHeight - prevScrollHeight;
+          }, 0);
+        });
+      }
+    }
   }
 
   onInput() {
@@ -166,10 +337,21 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     }
 
     this.chatService.clearTypingUsers();
+    this.showGroupInfo.set(false);
     this.conversationService.loadMyConversations();
     this.conversationService.loadInitialHistory(id).subscribe(() => {
       this.chatService.joinRoom(id);
+      this.isNearBottom = true;
+      this.scrollToBottom();
+      this.loadActiveConversationDetails(id);
     });
+  }
+
+  private scrollToBottom() {
+    if (this.scrollContainer) {
+      this.scrollContainer.nativeElement.scrollTop =
+        this.scrollContainer.nativeElement.scrollHeight;
+    }
   }
 
   sendMessage(inputElement: HTMLInputElement) {
@@ -178,6 +360,7 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     const attachments = this.pendingAttachments();
 
     if ((content || attachments.length > 0) && conversationId) {
+      this.isNearBottom = true;
       this.chatService
         .sendMessage(conversationId, content, attachments)
         .then((message) => {

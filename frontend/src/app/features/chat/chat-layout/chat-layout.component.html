@@ -6,7 +6,7 @@
         <h2 class="text-xl font-bold">Conversations</h2>
         <button routerLink="/create-group" class="btn btn-primary btn-xs">+ Group</button>
       </div>
-            <div class="relative">
+      <div class="relative">
         <input
           type="text"
           [ngModel]="searchQuery()"
@@ -87,175 +87,327 @@
   <!-- Right Column: Chat Window -->
   <div class="w-3/4 flex flex-col relative">
     @if (conversationService.activeConversationId()) {
-      <!-- Messages Area -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        @if (
-          conversationService.isLoadingHistory() && conversationService.messages().length === 0
-        ) {
-          <div class="flex justify-center p-4">
-            <span class="loading loading-spinner loading-md"></span>
-          </div>
-        }
-
-        @for (msg of conversationService.messages(); track msg.id) {
-          <div
-            class="chat"
-            [ngClass]="msg.senderId === userService.profile()?.id ? 'chat-end' : 'chat-start'"
-          >
-            <div class="chat-header">
-              {{ msg.senderName }}
-              <time class="text-xs opacity-50 ml-1">{{ msg.sentAt | date: 'shortTime' }}</time>
+      <!-- Chat Header -->
+      <div class="p-4 border-b border-base-300 bg-base-200 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="avatar">
+            <div class="rounded-full w-10">
+              <img
+                [src]="getConversationAvatar(activeConversation())"
+                [alt]="activeConversation()?.name"
+                (error)="$any($event.target).src = userService.defaultAvatar"
+              />
             </div>
-            <div
-              class="chat-bubble"
-              [ngClass]="
-                msg.senderId === userService.profile()?.id
-                  ? 'chat-bubble-primary'
-                  : 'chat-bubble-secondary'
-              "
-            >
-              {{ msg.content }}
+          </div>
+          <div>
+            <h2 class="font-bold">{{ activeConversation()?.name }}</h2>
+            @if (activeConversation()?.isGroup) {
+              <span class="text-xs opacity-50">{{ activeConversation()?.members?.length }} members</span>
+            }
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          @if (activeConversation()?.isGroup) {
+            <button (click)="showGroupInfo.set(!showGroupInfo())" class="btn btn-ghost btn-sm btn-circle" [ngClass]="{'btn-active bg-base-300': showGroupInfo()}">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          }
+        </div>
+      </div>
 
-              @if (msg.attachments && msg.attachments.length > 0) {
-                <div class="flex flex-wrap gap-2 mt-2 mb-2">
-                  @for (file of msg.attachments; track file.url) {
-                    <div class="attachment-item">
-                      @switch (file.type) {
-                        @case ('Image') {
-                          <img
-                            [src]="getFileUrl(file.url)"
-                            [alt]="file.fileName"
-                            class="max-w-[250px] rounded-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
-                          />
-                        }
-                        @case ('Video') {
-                          <video
-                            [src]="getFileUrl(file.url)"
-                            controls
-                            class="max-w-[300px] rounded-lg shadow-sm"
-                          ></video>
-                        }
-                        @case ('Audio') {
-                          <audio [src]="getFileUrl(file.url)" controls class="w-full max-w-[250px]"></audio>
-                        }
-                        @default {
-                          <a
-                            [href]="getFileUrl(file.url)"
-                            target="_blank"
-                            [download]="file.fileName"
-                            class="btn btn-sm btn-outline gap-2 normal-case"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+      <div class="flex-1 flex overflow-hidden">
+        <!-- Main Chat Content -->
+        <div class="flex-1 flex flex-col min-w-0 relative">
+          <!-- Messages Area -->
+          <div
+            #scrollContainer
+            (scroll)="onScroll($event)"
+            class="flex-1 overflow-y-auto p-4 space-y-4"
+          >
+            @if (
+              conversationService.isLoadingHistory() && conversationService.messages().length === 0
+            ) {
+              <div class="flex justify-center p-4">
+                <span class="loading loading-spinner loading-md"></span>
+              </div>
+            }
+
+            @for (msg of conversationService.messages(); track msg.id) {
+              <div
+                class="chat"
+                [ngClass]="msg.senderId === userService.profile()?.id ? 'chat-end' : 'chat-start'"
+              >
+                <div class="chat-header">
+                  {{ msg.senderName }}
+                  <time class="text-xs opacity-50 ml-1">{{ msg.sentAt | date: 'shortTime' }}</time>
+                </div>
+                <div
+                  class="chat-bubble"
+                  [ngClass]="
+                    msg.senderId === userService.profile()?.id
+                      ? 'chat-bubble-primary'
+                      : 'chat-bubble-secondary'
+                  "
+                >
+                  {{ msg.content }}
+
+                  @if (msg.attachments && msg.attachments.length > 0) {
+                    <div class="flex flex-wrap gap-2 mt-2 mb-2">
+                      @for (file of msg.attachments; track file.url) {
+                        <div class="attachment-item">
+                          @switch (file.type) {
+                            @case ('Image') {
+                              <img
+                                [src]="getFileUrl(file.url)"
+                                [alt]="file.fileName"
+                                class="max-w-[250px] rounded-lg shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
                               />
-                            </svg>
-                            {{ file.fileName || 'Download' }}
-                          </a>
-                        }
+                            }
+                            @case ('Video') {
+                              <video
+                                [src]="getFileUrl(file.url)"
+                                controls
+                                class="max-w-[300px] rounded-lg shadow-sm"
+                              ></video>
+                            }
+                            @case ('Audio') {
+                              <audio [src]="getFileUrl(file.url)" controls class="w-full max-w-[250px]"></audio>
+                            }
+                            @default {
+                              <a
+                                [href]="getFileUrl(file.url)"
+                                target="_blank"
+                                [download]="file.fileName"
+                                class="btn btn-sm btn-outline gap-2 normal-case"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  class="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                  />
+                                </svg>
+                                {{ file.fileName || 'Download' }}
+                              </a>
+                            }
+                          }
+                        </div>
                       }
                     </div>
                   }
                 </div>
-              }
-            </div>
-          </div>
-        }
-
-        @if (conversationService.isLoadingHistory() && conversationService.messages().length > 0) {
-          <div class="flex justify-center p-2">
-            <span class="loading loading-spinner loading-sm text-primary"></span>
-          </div>
-        }
-      </div>
-
-      <!-- Message Input -->
-      <div class="p-4 border-t border-base-300 bg-base-200">
-        @if (chatService.typingUsers().length > 0) {
-          <div class="text-xs text-base-content/60 italic p-2">
-            @for (user of chatService.typingUsers(); track user.userId) {
-              <span>{{ user.displayName }} </span>
+              </div>
             }
-            pisze <span class="loading loading-dots loading-xs"></span>
-          </div>
-        }
-        @if (pendingAttachments().length > 0) {
-          <div class="flex flex-wrap gap-2 mb-2 p-2 bg-base-100 rounded-lg border border-base-300">
-            @for (file of pendingAttachments(); track $index) {
-              <div class="badge badge-secondary gap-2 p-3">
-                <span class="text-xs truncate max-w-[150px]">{{ file.fileName }}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  class="inline-block w-4 h-4 stroke-current cursor-pointer"
-                  (click)="removeAttachment($index)"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  ></path>
-                </svg>
+
+            @if (conversationService.isLoadingHistory() && conversationService.messages().length > 0) {
+              <div class="flex justify-center p-2">
+                <span class="loading loading-spinner loading-sm text-primary"></span>
               </div>
             }
           </div>
-        }
 
-        <form (submit)="sendMessage(messageInput); $event.preventDefault()" class="flex gap-2">
-          <input #fileInput type="file" class="hidden" multiple (change)="onFileSelected($event)" />
-          <button
-            type="button"
-            class="btn btn-circle btn-ghost"
-            (click)="fileInput.click()"
-            [disabled]="isUploading()"
-          >
-            @if (isUploading()) {
-              <span class="loading loading-spinner loading-xs"></span>
-            } @else {
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                />
-              </svg>
+          <!-- Message Input -->
+          <div class="p-4 border-t border-base-300 bg-base-200">
+            @if (chatService.typingUsers().length > 0) {
+              <div class="text-xs text-base-content/60 italic p-2">
+                @for (user of chatService.typingUsers(); track user.userId) {
+                  <span>{{ user.displayName }} </span>
+                }
+                pisze <span class="loading loading-dots loading-xs"></span>
+              </div>
             }
-          </button>
+            @if (pendingAttachments().length > 0) {
+              <div class="flex flex-wrap gap-2 mb-2 p-2 bg-base-100 rounded-lg border border-base-300">
+                @for (file of pendingAttachments(); track $index) {
+                  <div class="badge badge-secondary gap-2 p-3">
+                    <span class="text-xs truncate max-w-[150px]">{{ file.fileName }}</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      class="inline-block w-4 h-4 stroke-current cursor-pointer"
+                      (click)="removeAttachment($index)"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      ></path>
+                    </svg>
+                  </div>
+                }
+              </div>
+            }
 
-          <input
-            #messageInput
-            (input)="onInput()"
-            type="text"
-            placeholder="Type your message..."
-            class="input input-bordered flex-1 focus:input-primary"
-            autocomplete="off"
-          />
-          <button
-            type="submit"
-            class="btn btn-primary"
-            [disabled]="!messageInput.value.trim() && pendingAttachments().length === 0"
-          >
-            Send
-          </button>
-        </form>
+            <form (submit)="sendMessage(messageInput); $event.preventDefault()" class="flex gap-2">
+              <input #fileInput type="file" class="hidden" multiple (change)="onFileSelected($event)" />
+              <button
+                type="button"
+                class="btn btn-circle btn-ghost"
+                (click)="fileInput.click()"
+                [disabled]="isUploading()"
+              >
+                @if (isUploading()) {
+                  <span class="loading loading-spinner loading-xs"></span>
+                } @else {
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                    />
+                  </svg>
+                }
+              </button>
+
+              <input
+                #messageInput
+                (input)="onInput()"
+                type="text"
+                placeholder="Type your message..."
+                class="input input-bordered flex-1 focus:input-primary"
+                autocomplete="off"
+              />
+              <button
+                type="submit"
+                class="btn btn-primary"
+                [disabled]="!messageInput.value.trim() && pendingAttachments().length === 0"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Group Info Sidebar -->
+        @if (showGroupInfo() && activeConversation()?.isGroup) {
+          <div class="w-80 border-l border-base-300 bg-base-200 overflow-y-auto p-4 flex flex-col gap-6">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold">Group Info</h3>
+              <button (click)="showGroupInfo.set(false)" class="btn btn-ghost btn-sm btn-circle">✕</button>
+            </div>
+
+            <!-- Group Avatar -->
+            <div class="flex flex-col items-center gap-4">
+              <div class="avatar">
+                <div class="rounded-full w-24 ring ring-primary ring-offset-base-100 ring-offset-2">
+                  <img
+                    [src]="getConversationAvatar(activeConversation())"
+                    [alt]="activeConversation()?.name"
+                    (error)="$any($event.target).src = userService.defaultAvatar"
+                  />
+                </div>
+              </div>
+              <h2 class="text-xl font-bold text-center">{{ activeConversation()?.name }}</h2>
+
+              @if (isAdmin()) {
+                <input
+                  type="file"
+                  class="hidden"
+                  accept="image/*"
+                  #groupImageInput
+                  (change)="onGroupImageSelected($event)"
+                />
+                <button
+                  class="btn btn-primary btn-sm btn-outline"
+                  (click)="groupImageInput.click()"
+                >
+                  Change Photo
+                </button>
+              }
+            </div>
+
+            <!-- Add Member (Admin Only) -->
+            @if (isAdmin()) {
+              <div class="flex flex-col gap-2">
+                <h4 class="text-sm font-semibold opacity-70 uppercase tracking-wider">Add Member</h4>
+                <div class="relative">
+                  <input
+                    type="text"
+                    [ngModel]="memberSearchQuery()"
+                    (ngModelChange)="memberSearchQuery.set($event); onMemberSearch()"
+                    placeholder="Search users..."
+                    class="input input-bordered input-sm w-full"
+                  />
+                  @if (memberSearchResults().length > 0) {
+                    <div class="absolute z-20 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-40 overflow-y-auto border border-base-300">
+                      @for (user of memberSearchResults(); track user.id) {
+                        <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
+                          <div class="flex items-center gap-2">
+                            <div class="avatar">
+                              <div class="rounded-full w-6">
+                                <img [src]="getUserAvatar(user)" [alt]="user.displayName" />
+                              </div>
+                            </div>
+                            <span class="text-sm truncate max-w-[120px]">{{ user.displayName }}</span>
+                          </div>
+                          <button (click)="addMember(user.id)" class="btn btn-primary btn-xs">Add</button>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Members List -->
+            <div class="flex flex-col gap-2">
+              <h4 class="text-sm font-semibold opacity-70 uppercase tracking-wider">Members ({{ activeConversation()?.members?.length }})</h4>
+              <div class="flex flex-col gap-2">
+                @for (member of activeConversation()?.members; track member.userId) {
+                  <div class="flex items-center justify-between group">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                      <div class="avatar">
+                        <div class="rounded-full w-8">
+                          <img
+                            [src]="getFileUrl(member.pictureUrl || '')"
+                            [alt]="member.displayName"
+                            (error)="$any($event.target).src = userService.defaultAvatar"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex flex-col min-w-0">
+                        <span class="text-sm font-medium truncate">{{ member.displayName }}</span>
+                        @if (member.isAdmin) {
+                          <span class="text-[10px] text-primary font-bold uppercase">Admin</span>
+                        }
+                      </div>
+                    </div>
+                    @if (isAdmin() && member.userId !== userService.profile()?.id) {
+                      <button (click)="removeMember(member.userId)" class="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity">
+                        Remove
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="mt-auto pt-4 border-t border-base-300">
+              <button (click)="leaveGroup()" class="btn btn-outline btn-error btn-block btn-sm">
+                Leave Group
+              </button>
+            </div>
+          </div>
+        }
       </div>
     } @else {
       <!-- Placeholder -->

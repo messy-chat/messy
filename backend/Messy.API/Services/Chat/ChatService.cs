@@ -57,10 +57,52 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
                 IsGroup = c.IsGroup,
                 LastMessage = lastMessage?.Content,
                 LastMessageSentAt = lastMessage?.TimeStamp,
-                PictureUrl = pictureUrl
+                ImageUrl = c.ImageUrl,
+                Members = c.Members.Select(m => new ConversationMemberDto
+                {
+                    UserId = m.UserId,
+                    Username = m.User.UserName ?? string.Empty,
+                    DisplayName = m.User.DisplayName,
+                    ProfilePictureUrl = m.User.ProfilePictureUrl,
+                    IsAdmin = m.IsAdmin
+                }).ToList()
             };
         })
         .OrderByDescending(c => c.LastMessageSentAt ?? DateTime.MinValue);
+    }
+
+    public async Task<ConversationDto?> GetConversationAsync(Guid conversationId, string userId)
+    {
+        var conversation = await unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
+        if (conversation == null || !conversation.Members.Any(m => m.UserId == userId)) return null;
+
+        var lastMessage = conversation.Messages.OrderByDescending(m => m.TimeStamp).FirstOrDefault();
+
+        string name = conversation.Title ?? "Unknown";
+
+        if (!conversation.IsGroup)
+        {
+            var otherMember = conversation.Members.FirstOrDefault(m => m.UserId != userId);
+            name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
+        }
+
+        return new ConversationDto
+        {
+            Id = conversation.Id,
+            Name = name,
+            IsGroup = conversation.IsGroup,
+            LastMessage = lastMessage?.Content,
+            LastMessageSentAt = lastMessage?.TimeStamp,
+            ImageUrl = conversation.ImageUrl,
+            Members = conversation.Members.Select(m => new ConversationMemberDto
+            {
+                UserId = m.UserId,
+                Username = m.User.UserName ?? string.Empty,
+                DisplayName = m.User.DisplayName,
+                ProfilePictureUrl = m.User.ProfilePictureUrl,
+                IsAdmin = m.IsAdmin
+            }).ToList()
+        };
     }
 
     public async Task<IEnumerable<MessageDto>> GetConversationMessagesAsync(Guid conversationId, string userId, Guid? beforeMessageId = null, int pageSize = 50)
@@ -83,6 +125,7 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
         return messages.Select(m => new MessageDto
         {
             Id = m.Id,
+            ConversationId = m.ConversationId,
             SenderId = m.SenderId,
             SenderName = m.Sender.DisplayName ?? m.Sender.UserName ?? "Unknown",
             Content = m.Content,

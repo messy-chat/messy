@@ -4,6 +4,14 @@ export interface Attachment {
   fileName: string;
 }
 
+export interface ConversationMember {
+  userId: string;
+  userName: string;
+  displayName: string;
+  pictureUrl?: string;
+  isAdmin: boolean;
+}
+
 export interface Conversation {
   id: string;
   name: string;
@@ -11,10 +19,13 @@ export interface Conversation {
   lastMessage?: string;
   lastMessageSentAt?: string;
   pictureUrl?: string;
+  imageUrl?: string;
+  members?: ConversationMember[];
 }
 
 export interface Message {
   id: string;
+  conversationId: string;
   senderId: string;
   senderName: string;
   content: string;
