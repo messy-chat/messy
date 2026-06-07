@@ -6,7 +6,7 @@
         <h2 class="text-xl font-bold">Conversations</h2>
         <button routerLink="/create-group" class="btn btn-primary btn-xs">+ Group</button>
       </div>
-      <div class="relative">
+            <div class="relative">
         <input
           type="text"
           [ngModel]="searchQuery()"
@@ -23,9 +23,13 @@
                 class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0"
               >
                 <div class="flex items-center gap-2 overflow-hidden">
-                  <div class="avatar placeholder">
-                    <div class="bg-neutral text-neutral-content rounded-full w-8">
-                      <span class="text-xs">{{ user.username.substring(0, 2).toUpperCase() }}</span>
+                  <div class="avatar">
+                    <div class="rounded-full w-8">
+                      <img
+                        [src]="getUserAvatar(user)"
+                        [alt]="user.displayName"
+                        (error)="$any($event.target).src = userService.defaultAvatar"
+                      />
                     </div>
                   </div>
                   <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
@@ -49,17 +53,30 @@
               conversationService.activeConversationId() === conv.id,
           }"
         >
-          <div class="flex justify-between items-start">
-            <h3 class="font-semibold truncate">{{ conv.name }}</h3>
-            @if (conv.lastMessageSentAt) {
-              <span class="text-xs opacity-50">{{
-                conv.lastMessageSentAt | date: 'shortTime'
-              }}</span>
-            }
+          <div class="flex items-center gap-3">
+            <div class="avatar flex-shrink-0">
+              <div class="rounded-full w-10">
+                <img
+                  [src]="getConversationAvatar(conv)"
+                  [alt]="conv.name"
+                  (error)="$any($event.target).src = userService.defaultAvatar"
+                />
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-start">
+                <h3 class="font-semibold truncate">{{ conv.name }}</h3>
+                @if (conv.lastMessageSentAt) {
+                  <span class="text-xs opacity-50">{{
+                    conv.lastMessageSentAt | date: 'shortTime'
+                  }}</span>
+                }
+              </div>
+              @if (conv.lastMessage) {
+                <p class="text-sm opacity-70 truncate">{{ conv.lastMessage }}</p>
+              }
+            </div>
           </div>
-          @if (conv.lastMessage) {
-            <p class="text-sm opacity-70 truncate">{{ conv.lastMessage }}</p>
-          }
         </div>
       } @empty {
         <div class="p-8 text-center opacity-50">No conversations found.</div>
@@ -163,6 +180,14 @@
 
       <!-- Message Input -->
       <div class="p-4 border-t border-base-300 bg-base-200">
+        @if (chatService.typingUsers().length > 0) {
+          <div class="text-xs text-base-content/60 italic p-2">
+            @for (user of chatService.typingUsers(); track user.userId) {
+              <span>{{ user.displayName }} </span>
+            }
+            pisze <span class="loading loading-dots loading-xs"></span>
+          </div>
+        }
         @if (pendingAttachments().length > 0) {
           <div class="flex flex-wrap gap-2 mb-2 p-2 bg-base-100 rounded-lg border border-base-300">
             @for (file of pendingAttachments(); track $index) {
@@ -217,7 +242,7 @@
 
           <input
             #messageInput
-            (input)="(0)"
+            (input)="onInput()"
             type="text"
             placeholder="Type your message..."
             class="input input-bordered flex-1 focus:input-primary"

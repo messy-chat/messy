@@ -24,12 +24,29 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
 
     return url;
   }
+
+  getConversationAvatar(conv: any) {
+    if (conv.pictureUrl) {
+      return this.getFileUrl(conv.pictureUrl);
+    }
+    return this.userService.defaultAvatar;
+  }
+
+  getUserAvatar(user: Profile) {
+    if (user.profilePictureUrl) {
+      return this.getFileUrl(user.profilePictureUrl);
+    }
+    return this.userService.defaultAvatar;
+  }
+
   protected conversationService = inject(ConversationService);
   protected userService = inject(UserService);
   protected chatService = inject(ChatService);
 
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
+  private typingSubject = new Subject<void>();
+  private lastTypingEventSentAt = 0;
 
   searchQuery = signal('');
   searchResults = signal<Profile[]>([]);
@@ -49,6 +66,14 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
       .subscribe((query) => {
         this.performSearch(query);
       });
+
+    this.typingSubject.pipe(debounceTime(3000), takeUntil(this.destroy$)).subscribe(() => {
+      const activeConversationId = this.conversationService.activeConversationId();
+      if (activeConversationId) {
+        this.chatService.notifyStoppedTyping(activeConversationId);
+        this.lastTypingEventSentAt = 0;
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -56,12 +81,27 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     if (currentId) {
       this.chatService.leaveRoom(currentId);
     }
+    this.chatService.clearTypingUsers();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
   onSearch() {
     this.searchSubject.next(this.searchQuery());
+  }
+
+  onInput() {
+    const activeConversationId = this.conversationService.activeConversationId();
+    if (!activeConversationId) return;
+
+    const now = Date.now();
+    // Throttling: only send UserTyping once every 5 seconds while user is typing
+    if (now - this.lastTypingEventSentAt > 5000) {
+      this.chatService.notifyTyping(activeConversationId);
+      this.lastTypingEventSentAt = now;
+    }
+
+    this.typingSubject.next();
   }
 
   onFileSelected(event: any) {
@@ -125,6 +165,7 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
       this.chatService.leaveRoom(previousId);
     }
 
+    this.chatService.clearTypingUsers();
     this.conversationService.loadMyConversations();
     this.conversationService.loadInitialHistory(id).subscribe(() => {
       this.chatService.joinRoom(id);
@@ -145,10 +186,10 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
           }
           inputElement.value = '';
           this.pendingAttachments.set([]);
+          this.chatService.notifyStoppedTyping(conversationId);
+          this.lastTypingEventSentAt = 0;
         })
         .catch((err) => console.error('Failed to send message', err));
     }
   }
-
-  protected readonly environment = environment;
 }

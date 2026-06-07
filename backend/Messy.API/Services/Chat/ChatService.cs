@@ -42,13 +42,22 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
                 name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
             }
 
+            string? pictureUrl = string.Empty;
+            
+            if (c.Members.Count >= 2)
+            {
+                 pictureUrl = c.Members.FirstOrDefault(m => m.UserId != userId)?.User.ProfilePictureUrl;    
+            }
+
+            
             return new ConversationDto
             {
                 Id = c.Id,
                 Name = name,
                 IsGroup = c.IsGroup,
                 LastMessage = lastMessage?.Content,
-                LastMessageSentAt = lastMessage?.TimeStamp
+                LastMessageSentAt = lastMessage?.TimeStamp,
+                PictureUrl = pictureUrl
             };
         })
         .OrderByDescending(c => c.LastMessageSentAt ?? DateTime.MinValue);

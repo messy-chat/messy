@@ -104,6 +104,31 @@ public class ChatHub : Hub
         }
     }
 
+    public async Task UserTyping(Guid conversationId)
+    {
+        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (currentUserId == null) return;
+        
+        var currentUser = await _userManager.FindByIdAsync(currentUserId);
+        if (currentUser == null) throw new HubException("User not found");
+        
+        var displayName = currentUser.DisplayName ?? currentUser.UserName ?? "Unknown";
+
+
+        var roomName = $"room-{conversationId.ToString().ToLower()}";
+        await Clients.OthersInGroup(roomName).SendAsync("OnUserTyping", new { UserId = currentUserId, DisplayName = displayName });
+    }
+
+    public async Task UserStoppedTyping(Guid conversationId)
+    {
+        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (currentUserId == null) return;
+
+        var roomName = $"room-{conversationId.ToString().ToLower()}";
+        await Clients.OthersInGroup(roomName).SendAsync("OnUserStoppedTyping", new { UserId = currentUserId });
+    }
+
     public override async Task OnConnectedAsync()
     {
         var username = Context.User?.Identity?.Name;
