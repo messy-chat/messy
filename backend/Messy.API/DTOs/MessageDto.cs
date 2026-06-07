@@ -3,6 +3,7 @@ namespace Messy.API.DTOs;
 public class MessageDto
 {
     public Guid Id { get; set; }
+    public Guid ConversationId { get; set; }
     public string SenderId { get; set; } = null!;
     public string SenderName { get; set; } = null!;
     public string Content { get; set; } = null!;

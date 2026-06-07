@@ -1,10 +1,19 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import {
+  Component,
+  inject,
+  OnInit,
+  OnDestroy,
+  signal,
+  ViewChild,
+  ElementRef,
+  effect,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConversationService } from '../../../core/services/conversation.service';
 import { UserService } from '../../../core/services/user.service';
 import { ChatService } from '../../../core/services/chat.service';
 import { Profile } from '../../../core/models/profile.model';
-import { Attachment } from '../../../core/models/conversation.model';
+import { Attachment, Message } from '../../../core/models/conversation.model';
 import { FormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { RouterLink } from '@angular/router';
@@ -17,6 +26,20 @@ import { environment } from '../../../../environments/environment';
   templateUrl: './chat-layout.component.html',
 })
 export class ChatLayoutComponent implements OnInit, OnDestroy {
+  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
+  private isNearBottom: boolean = true;
+
+  constructor() {
+    effect(() => {
+      const msgs = this.conversationService.messages();
+      if (this.isNearBottom && msgs.length > 0) {
+        setTimeout(() => {
+          this.scrollToBottom();
+        }, 0);
+      }
+    });
+  }
+
   getFileUrl(url: string) {
     if (!environment.production) {
       return `${environment.baseUrl}/${url}`;
@@ -88,6 +111,36 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
 
   onSearch() {
     this.searchSubject.next(this.searchQuery());
+  }
+
+  onScroll(event: any) {
+    const element = event.target as HTMLElement;
+
+    // Detect if user is near bottom (50px tolerance)
+    this.isNearBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 50;
+
+    // Pagination logic (load older messages)
+    if (element.scrollTop === 0) {
+      const activeId = this.conversationService.activeConversationId();
+      const messages = this.conversationService.messages();
+
+      if (
+        activeId &&
+        messages.length > 0 &&
+        !this.conversationService.isLoadingHistory() &&
+        this.conversationService.hasMoreMessages()
+      ) {
+        const prevScrollHeight = element.scrollHeight;
+        const firstMessageId = messages[0].id;
+
+        this.conversationService.loadOlderMessages(activeId, firstMessageId).subscribe(() => {
+          // Maintain scroll position after prepending messages
+          setTimeout(() => {
+            element.scrollTop = element.scrollHeight - prevScrollHeight;
+          }, 0);
+        });
+      }
+    }
   }
 
   onInput() {
@@ -169,7 +222,16 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     this.conversationService.loadMyConversations();
     this.conversationService.loadInitialHistory(id).subscribe(() => {
       this.chatService.joinRoom(id);
+      this.isNearBottom = true;
+      this.scrollToBottom();
     });
+  }
+
+  private scrollToBottom() {
+    if (this.scrollContainer) {
+      this.scrollContainer.nativeElement.scrollTop =
+        this.scrollContainer.nativeElement.scrollHeight;
+    }
   }
 
   sendMessage(inputElement: HTMLInputElement) {
@@ -178,6 +240,7 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     const attachments = this.pendingAttachments();
 
     if ((content || attachments.length > 0) && conversationId) {
+      this.isNearBottom = true;
       this.chatService
         .sendMessage(conversationId, content, attachments)
         .then((message) => {

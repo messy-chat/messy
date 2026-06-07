@@ -83,6 +83,7 @@ public class ChatService(IUnitOfWork unitOfWork, MessyDbContext context) : IChat
         return messages.Select(m => new MessageDto
         {
             Id = m.Id,
+            ConversationId = m.ConversationId,
             SenderId = m.SenderId,
             SenderName = m.Sender.DisplayName ?? m.Sender.UserName ?? "Unknown",
             Content = m.Content,

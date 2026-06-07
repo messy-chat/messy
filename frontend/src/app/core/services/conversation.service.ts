@@ -22,50 +22,37 @@ export class ConversationService {
 
   conversations = signal<Conversation[]>([]);
   activeConversationId = signal<string | null>(null);
-  messages = signal<Message[]>([]);
+  messages = signal<MessageDto[]>([]);
   isLoadingHistory = signal(false);
   hasMoreMessages = signal(true);
 
   constructor() {
-    this.chatService.messageReceived$.subscribe((message: any) => {
-      console.log('ConversationService: RECEIVED FROM CHATSERVICE', message);
+    this.chatService.messageReceived$.subscribe((message: MessageDto) => {
       const activeId = this.activeConversationId();
-      console.log('ConversationService: CURRENT ACTIVE ID', activeId);
 
-      // Extract conversationId - handle missing or differently named properties
-      const msgConversationId = message.conversationId || message.chatId || activeId;
-      console.log('ConversationService: RESOLVED CONVERSATION ID', msgConversationId);
-
-      if (activeId && msgConversationId === activeId) {
-        console.log('ConversationService: MATCH FOUND. UPDATING SIGNAL.');
+      if (activeId && message.conversationId === activeId) {
         this.messages.update((current) => {
-          const exists = current.find((m) => m.id === message.id);
-          if (exists) {
-            console.log('ConversationService: DUPLICATE IGNORED', message.id);
-            return current;
-          }
-          const updated = [...current, message];
-          console.log('ConversationService: SIGNAL UPDATED. NEW COUNT:', updated.length);
-          return updated;
+          if (current.find((m) => m.id === message.id)) return current;
+          return [...current, message];
         });
-      } else {
-        console.log('ConversationService: NO MATCH OR NO ACTIVE ID. SKIPPING UI UPDATE.');
       }
 
-      if (msgConversationId) {
-        this.conversations.update((list) => {
-          return list.map((conv) => {
-            if (conv.id === msgConversationId) {
-              return {
-                ...conv,
-                lastMessage: message.content,
-                lastMessageSentAt: message.sentAt,
-              };
-            }
-            return conv;
-          });
-        });
-      }
+      this.conversations.update((list) => {
+        const index = list.findIndex((c) => c.id === message.conversationId);
+        if (index === -1) return list;
+
+        const updatedConversation: Conversation = {
+          ...list[index],
+          lastMessage: message.content || (message.attachments?.length ? 'Sent an attachment' : ''),
+          lastMessageSentAt: message.sentAt,
+        };
+
+        const newList = [...list];
+        newList.splice(index, 1);
+        newList.unshift(updatedConversation);
+
+        return newList;
+      });
     });
   }
 
