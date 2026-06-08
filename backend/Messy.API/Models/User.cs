@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Messy.API.Models;
 
-public class User : IdentityUser
+public class User : IdentityUser<Guid>
 {
     public string? DisplayName { get; set; }
     public string? ProfilePictureUrl { get; set; }

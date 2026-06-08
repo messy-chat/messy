@@ -2,7 +2,7 @@ namespace Messy.API.Models;
 
 public class ConversationMember
 {
-    public string UserId { get; set; } = null!;
+    public Guid UserId { get; set; } = Guid.Empty;
     public User User { get; set; } = null!;
 
     public Guid ConversationId { get; set; }

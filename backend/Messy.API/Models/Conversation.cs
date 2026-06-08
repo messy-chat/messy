@@ -3,7 +3,7 @@ namespace Messy.API.Models;
 public class Conversation
 {
     public Guid Id { get; set; }
-    public string? Title { get; set; }
+    public string? Name { get; set; }
     public bool IsGroup { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? ImageUrl { get; set; }

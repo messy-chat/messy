@@ -6,19 +6,23 @@ export interface Attachment {
 
 export interface ConversationMember {
   userId: string;
-  userName: string;
+  username: string;
   displayName: string;
-  pictureUrl?: string;
+  avatarUrl?: string;
   isAdmin: boolean;
+  bio?: string;
+  status?: string;
 }
 
 export interface Conversation {
   id: string;
   name: string;
   isGroup: boolean;
+  otherUserId?: string;
+  bio?: string;
+  status?: string;
   lastMessage?: string;
   lastMessageSentAt?: string;
-  pictureUrl?: string;
   imageUrl?: string;
   members?: ConversationMember[];
 }
@@ -36,7 +40,7 @@ export interface Message {
 
 export interface MessageDto {
   id: string;
-  conversationId?: string;
+  conversationId: string;
   senderId: string;
   senderName: string;
   content: string;
@@ -48,4 +52,20 @@ export interface MessageDto {
 export interface CreateGroupDto {
   name: string;
   memberUserIds: string[];
+}
+
+export interface ConversationUpdatedEvent {
+  id: string;
+  name?: string;
+  imageUrl?: string;
+}
+
+export interface MemberAddedEvent {
+  conversationId: string;
+  member: ConversationMember;
+}
+
+export interface MemberRemovedEvent {
+  conversationId: string;
+  userId: string;
 }

@@ -16,7 +16,7 @@ public class Message
     public string? MediaUrl { get; set; }
     public bool IsRead { get; set; } = false;
 
-    public string SenderId { get; set; } = null!;
+    public Guid SenderId { get; set; }
     public User Sender { get; set; } = null!;
 
     public Guid ConversationId { get; set; }

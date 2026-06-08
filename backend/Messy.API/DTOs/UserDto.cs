@@ -1,12 +1,11 @@
 namespace Messy.API.DTOs;
 
-public class ConversationMemberDto
+public class UserDto
 {
-    public Guid UserId { get; set; } = Guid.Empty;
+    public Guid Id { get; set; } = Guid.Empty;
     public string Username { get; set; } = null!;
     public string? DisplayName { get; set; }
     public string? AvatarUrl { get; set; }
-    public bool IsAdmin { get; set; }
     public string? Bio { get; set; }
     public string? Status { get; set; }
 }

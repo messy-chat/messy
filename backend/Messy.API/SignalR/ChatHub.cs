@@ -1,34 +1,25 @@
 using Messy.API.DTOs;
 using Messy.API.Interfaces;
-using Messy.API.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
 namespace Messy.API.SignalR;
 
 [Authorize]
-public class ChatHub : Hub
+public class ChatHub(
+    PresenceTracker tracker, 
+    IConversationService conversationService, 
+    IMessageService messageService,
+    IUserService userService) : Hub
 {
-    private readonly PresenceTracker _tracker;
-    private readonly UserManager<User> _userManager;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public ChatHub(PresenceTracker tracker, UserManager<User> userManager, IUnitOfWork unitOfWork)
-    {
-        _tracker = tracker;
-        _userManager = userManager;
-        _unitOfWork = unitOfWork;
-    }
-
     public async Task JoinConversation(Guid conversationId)
     {
-        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (currentUserId == null) throw new HubException("Unauthorized");
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) throw new HubException("Unauthorized");
 
-        var conversation = await _unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null || !conversation.Members.Any(m => m.UserId == currentUserId))
+        var conversation = await conversationService.GetConversationDetailsAsync(conversationId, currentUserId);
+        if (conversation == null)
         {
             throw new HubException("User is not a member of this conversation.");
         }
@@ -46,86 +37,44 @@ public class ChatHub : Hub
     {
         if (string.IsNullOrWhiteSpace(content) && (attachments == null || attachments.Count == 0)) return;
 
-        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (currentUserId == null) throw new HubException("Unauthorized");
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) throw new HubException("Unauthorized");
 
-        var conversation = await _unitOfWork.Conversations.GetConversationWithMembersAsync(conversationId);
-        if (conversation == null || !conversation.Members.Any(m => m.UserId == currentUserId))
+        try
         {
-            throw new HubException("User is not a member of this conversation.");
-        }
+            var messageDto = await messageService.SaveMessageAsync(conversationId, currentUserId, content, attachments);
 
-        var currentUser = await _userManager.FindByIdAsync(currentUserId);
-        if (currentUser == null) throw new HubException("User not found");
+            var conversation = await conversationService.GetConversationDetailsAsync(conversationId, currentUserId);
+            if (conversation == null) throw new HubException("Conversation not found");
 
-        var message = new Message
-        {
-            ConversationId = conversationId,
-            SenderId = currentUserId,
-            Content = content ?? string.Empty,
-            TimeStamp = DateTime.UtcNow,
-            IsRead = false
-        };
-
-        if (attachments != null && attachments.Count > 0)
-        {
-            foreach (var attachmentDto in attachments)
-            {
-                message.Attachments.Add(new Attachment
-                {
-                    Url = attachmentDto.Url,
-                    Type = attachmentDto.Type,
-                    FileName = attachmentDto.FileName
-                });
-            }
-        }
-
-        _unitOfWork.Messages.Add(message);
-
-        if (await _unitOfWork.CompleteAsync())
-        {
-            var messageDto = new MessageDto
-            {
-                Id = message.Id,
-                ConversationId = conversationId,
-                SenderId = message.SenderId,
-                SenderName = currentUser.DisplayName ?? currentUser.UserName ?? "Unknown",
-                Content = message.Content,
-                SentAt = message.TimeStamp,
-                IsRead = message.IsRead,
-                Attachments = message.Attachments.Select(a => new AttachmentDto
-                {
-                    Url = a.Url,
-                    Type = a.Type,
-                    FileName = a.FileName
-                }).ToList()
-            };
-
-            var memberIds = conversation.Members.Select(m => m.UserId).ToList();
+            var memberIds = conversation.Members.Select(m => m.UserId.ToString()).ToList();
             await Clients.Users(memberIds).SendAsync("NewMessage", messageDto);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new HubException(ex.Message);
+        }
+        catch (Exception)
+        {
+            throw new HubException("Failed to send message");
         }
     }
 
     public async Task UserTyping(Guid conversationId)
     {
-        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var currentUserId = GetCurrentUserId();
+        var userName = Context.User?.Identity?.Name;
 
-        if (currentUserId == null) return;
-        
-        var currentUser = await _userManager.FindByIdAsync(currentUserId);
-        if (currentUser == null) throw new HubException("User not found");
-        
-        var displayName = currentUser.DisplayName ?? currentUser.UserName ?? "Unknown";
-
+        if (currentUserId == Guid.Empty || userName == null) return;
 
         var roomName = $"room-{conversationId.ToString().ToLower()}";
-        await Clients.OthersInGroup(roomName).SendAsync("OnUserTyping", new { UserId = currentUserId, DisplayName = displayName });
+        await Clients.OthersInGroup(roomName).SendAsync("OnUserTyping", new { UserId = currentUserId, UserName = userName });
     }
 
     public async Task UserStoppedTyping(Guid conversationId)
     {
-        var currentUserId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (currentUserId == null) return;
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty) return;
 
         var roomName = $"room-{conversationId.ToString().ToLower()}";
         await Clients.OthersInGroup(roomName).SendAsync("OnUserStoppedTyping", new { UserId = currentUserId });
@@ -133,49 +82,43 @@ public class ChatHub : Hub
 
     public override async Task OnConnectedAsync()
     {
-        var username = Context.User?.Identity?.Name;
-        if (username == null) return;
+        var currentUserId = GetCurrentUserId();
+        var username = Context.User?.Identity!.Name;
+        
+        if (currentUserId == Guid.Empty || username == null) return;
 
-        var isOnline = await _tracker.UserConnected(username, Context.ConnectionId);
+        var isOnline = await tracker.UserConnected(currentUserId.ToString(), Context.ConnectionId);
 
         if (isOnline)
         {
-            await UpdateUserStatusInDb(username, "Online");
-            
-            await Clients.Others.SendAsync("UserIsOnline", username);
+            await Clients.Others.SendAsync("UserIsOnline", currentUserId.ToString());
         }
 
-        var currentUsers = await _tracker.GetOnlineUsers();
-        await Clients.Caller.SendAsync("GetOnlineUsers", currentUsers);
+        var userIds = await tracker.GetOnlineUserIds();
+        await Clients.Caller.SendAsync("GetOnlineUsers", userIds);
 
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var currentUserId = GetCurrentUserId();
         var username = Context.User?.Identity?.Name;
-        if (username == null) return;
+        if (currentUserId == Guid.Empty || username == null) return;
 
-        var isOffline = await _tracker.UserDisconnected(username, Context.ConnectionId);
+        var isOffline = await tracker.UserDisconnected(currentUserId.ToString(), Context.ConnectionId);
 
         if (isOffline)
         {
-            await UpdateUserStatusInDb(username, "Offline");
-            
-            await Clients.Others.SendAsync("UserIsOffline", username);
+            await Clients.Others.SendAsync("UserIsOffline", currentUserId.ToString());
         }
 
         await base.OnDisconnectedAsync(exception);
     }
 
-    private async Task UpdateUserStatusInDb(string username, string status)
+    private Guid GetCurrentUserId()
     {
-        var user = await _userManager.FindByNameAsync(username);
-        if (user != null)
-        {
-            user.Status = status;
-            user.LastSeen = DateTime.UtcNow;
-            await _userManager.UpdateAsync(user);
-        }
+        var userIdStr = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return string.IsNullOrEmpty(userIdStr) ? Guid.Empty : Guid.Parse(userIdStr);
     }
 }

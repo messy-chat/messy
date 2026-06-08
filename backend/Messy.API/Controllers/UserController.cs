@@ -13,15 +13,15 @@ namespace Messy.API.Controllers;
 public class UserController(IUserService userService, IPhotoService photoService) : ControllerBase
 {
     [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<ProfileDto>>> GetMyProfile()
+    public async Task<ActionResult<ApiResponse<UserDetailsDto>>> GetMyProfile()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null) return Unauthorized(ApiResponse<ProfileDto>.Fail("Session expired."));
+        if (userId == null) return Unauthorized(ApiResponse<object>.Fail("Session expired."));
 
-        var profile = await userService.GetProfileByIdAsync(userId);
-        if (profile == null) return NotFound(ApiResponse<ProfileDto>.Fail("User not found."));
+        var profile = await userService.GetUserByIdAsync(userId);
+        if (profile == null) return NotFound(ApiResponse<object>.Fail("User not found."));
 
-        return Ok(ApiResponse<ProfileDto>.Ok(profile, "Profile retrieved."));
+        return Ok(ApiResponse<UserDetailsDto>.Ok(profile, "Profile retrieved."));
     }
 
     [HttpPut("update")]
@@ -30,7 +30,7 @@ public class UserController(IUserService userService, IPhotoService photoService
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null) return Unauthorized(ApiResponse<object>.Fail("Session expired."));
 
-        var success = await userService.UpdateProfileAsync(userId, updateDto);
+        var success = await userService.UpdateUserInfoAsync(userId, updateDto);
         if (!success) return BadRequest(ApiResponse<object>.Fail("Failed to update profile."));
 
         return Ok(ApiResponse<object>.Ok(null, "Your profile has been successfully updated."));
@@ -66,12 +66,12 @@ public class UserController(IUserService userService, IPhotoService photoService
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<ProfileDto>>>> SearchUsers([FromQuery] string query)
+    public async Task<ActionResult<ApiResponse<IEnumerable<UserDto>>>> SearchUsers([FromQuery] string query)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null) return Unauthorized();
 
         var users = await userService.SearchUsersAsync(query, userId);
-        return Ok(ApiResponse<IEnumerable<ProfileDto>>.Ok(users));
+        return Ok(ApiResponse<IEnumerable<UserDto>>.Ok(users));
     }
 }

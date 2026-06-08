@@ -1,4 +1,3 @@
-using Messy.API.Data;
 using Messy.API.Interfaces.Repositories;
 using Messy.API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +14,15 @@ public class ConversationRepository(MessyDbContext context) : IConversationRepos
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
-    public async Task<Conversation?> GetPrivateConversationAsync(string userId1, string userId2)
+    public async Task<Conversation?> GetPrivateConversationAsync(Guid userId1, Guid userId2)
     {
         return await context.Conversations
             .Where(c => !c.IsGroup)
-            .Where(c => c.Members.Any(m => m.UserId == userId1) && c.Members.Any(m => m.UserId == userId2))
+            .Where(c => c.Members.Any(m => m.UserId.Equals(userId1)) && c.Members.Any(m => m.UserId == userId2))
             .FirstOrDefaultAsync();
     }
 
-    public async Task<IEnumerable<Conversation>> GetUserConversationsWithLastMessageAsync(string userId)
+    public async Task<IEnumerable<Conversation>> GetUserConversationsWithLastMessageAsync(Guid userId)
     {
         return await context.Conversations
             .Where(c => c.Members.Any(m => m.UserId == userId))

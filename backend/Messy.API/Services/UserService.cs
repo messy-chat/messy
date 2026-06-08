@@ -8,34 +8,34 @@ namespace Messy.API.Services;
 
 public class UserService(UserManager<User> userManager) : IUserService
 {
-    public async Task<ProfileDto?> GetProfileByIdAsync(string userId)
+    public async Task<UserDetailsDto?> GetUserByIdAsync(string userId)
     {
         var user = await userManager.FindByIdAsync(userId);
         if (user == null) return null;
 
-        return MapToProfileDto(user);
+        return MapToUserDetailsDto(user);
     }
 
-    public async Task<IEnumerable<ProfileDto>> SearchUsersAsync(string query, string currentUserId)
+    public async Task<IEnumerable<UserDto>> SearchUsersAsync(string query, string currentUserId)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Enumerable.Empty<ProfileDto>();
+            return Enumerable.Empty<UserDto>();
         }
 
         var searchTerm = query.ToLower();
 
         var users = await userManager.Users
-            .Where(u => u.Id != currentUserId &&
+            .Where(u => !u.Id.Equals(Guid.Parse(currentUserId)) &&
                         ((u.UserName != null && u.UserName.ToLower().Contains(searchTerm)) ||
                          (u.DisplayName != null && u.DisplayName.ToLower().Contains(searchTerm))))
             .Take(10)
             .ToListAsync();
 
-        return users.Select(MapToProfileDto);
+        return users.Select(MapToUserDto);
     }
 
-    public async Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto updateDto)
+    public async Task<bool> UpdateUserInfoAsync(string userId, UpdateProfileDto updateDto)
     {
         var user = await userManager.FindByIdAsync(userId);
         if (user == null) return false;
@@ -69,15 +69,44 @@ public class UserService(UserManager<User> userManager) : IUserService
         return result.Succeeded;
     }
 
-    private static ProfileDto MapToProfileDto(User user)
+    public async Task UpdateUserStatusAsync(string username, string status)
     {
-        return new ProfileDto
+        var user = await userManager.FindByNameAsync(username);
+        if (user != null)
+        {
+            user.Status = status;
+            user.LastSeen = DateTime.UtcNow;
+            await userManager.UpdateAsync(user);
+        }
+    }
+
+    public async Task<Guid?> GetUserIdByUsernameAsync(string username)
+    {
+        var user = await userManager.FindByNameAsync(username);
+        return user?.Id;
+    }
+
+    private static UserDetailsDto MapToUserDetailsDto(User user)
+    {
+        return new UserDetailsDto
         {
             Id = user.Id,
             Username = user.UserName ?? string.Empty,
-            Email = user.Email ?? string.Empty,
             DisplayName = user.DisplayName,
-            ProfilePictureUrl = user.ProfilePictureUrl,
+            AvatarUrl = user.ProfilePictureUrl,
+            Bio = user.Bio,
+            Status = user.Status
+        };
+    }
+    
+    private static UserDto MapToUserDto(User user)
+    {
+        return new UserDto
+        {
+            Id = user.Id,
+            Username = user.UserName ?? string.Empty,
+            DisplayName = user.DisplayName,
+            AvatarUrl = user.ProfilePictureUrl,
             Bio = user.Bio,
             Status = user.Status
         };

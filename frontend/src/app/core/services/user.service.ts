@@ -19,8 +19,8 @@ export class UserService {
 
   avatarUrl = computed(() => {
     const profile = this.profile();
-    if (!profile?.profilePictureUrl) return this.defaultAvatar;
-    return `${this.backendUrl}${profile.profilePictureUrl}`;
+    if (!profile?.avatarUrl) return this.defaultAvatar;
+    return `${this.backendUrl}${profile.avatarUrl}`;
   });
 
   getProfile(): Observable<ApiResponse<Profile>> {
@@ -50,7 +50,7 @@ export class UserService {
       tap((res) => {
         if (res.success) {
           this.profile.update((current) =>
-            current ? { ...current, profilePictureUrl: res.data } : null,
+            current ? { ...current, avatarUrl: res.data } : null,
           );
         }
       }),

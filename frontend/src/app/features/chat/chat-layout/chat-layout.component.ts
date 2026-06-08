@@ -1,118 +1,47 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  OnDestroy,
-  signal,
-  ViewChild,
-  ElementRef,
-  effect,
-  computed,
-} from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { SidebarComponent } from '../components/sidebar/sidebar.component';
+import { MessageListComponent } from '../components/message-list/message-list.component';
+import { MessageInputComponent } from '../components/message-input/message-input.component';
+import { GroupInfoComponent } from '../components/group-info/group-info.component';
 import { ConversationService } from '../../../core/services/conversation.service';
-import { UserService } from '../../../core/services/user.service';
 import { ChatService } from '../../../core/services/chat.service';
-import { Profile } from '../../../core/models/profile.model';
-import {
-  Attachment,
-  Conversation,
-} from '../../../core/models/conversation.model';
-import { FormsModule } from '@angular/forms';
-import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
-import { RouterLink } from '@angular/router';
+import { Subject, switchMap, takeUntil, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { UserService } from '../../../core/services/user.service';
 
 @Component({
   selector: 'app-chat-layout',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule,
+    SidebarComponent,
+    MessageListComponent,
+    MessageInputComponent,
+    GroupInfoComponent,
+  ],
   templateUrl: './chat-layout.component.html',
 })
 export class ChatLayoutComponent implements OnInit, OnDestroy {
-  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
-  private isNearBottom: boolean = true;
-
-  constructor() {
-    effect(() => {
-      const msgs = this.conversationService.messages();
-      if (this.isNearBottom && msgs.length > 0) {
-        setTimeout(() => {
-          this.scrollToBottom();
-        }, 0);
-      }
-    });
-  }
-
-  getFileUrl(url: string) {
-    if (!environment.production) {
-      return `${environment.baseUrl}/${url}`;
-    }
-
-    return url;
-  }
-
-  getConversationAvatar(conv: any) {
-    if (conv?.isGroup) {
-      return this.getFileUrl(conv.imageUrl!);
-    }
-    const otherMember = conv?.members!.find((m: any) => m.userId != this.userService.profile()?.id)!;
-    return this.getUserAvatar(otherMember)
-  }
-
-  getUserAvatar(user: Profile | null) {
-    if (user?.profilePictureUrl) {
-      return this.getFileUrl(user.profilePictureUrl);
-    }
-    return this.userService.defaultAvatar;
-  }
-
   protected conversationService = inject(ConversationService);
-  protected userService = inject(UserService);
   protected chatService = inject(ChatService);
+  protected userService = inject(UserService);
 
   private destroy$ = new Subject<void>();
-  private searchSubject = new Subject<string>();
-  private typingSubject = new Subject<void>();
-  private lastTypingEventSentAt = 0;
-
-  searchQuery = signal('');
-  searchResults = signal<Profile[]>([]);
-  pendingAttachments = signal<Attachment[]>([]);
-  isUploading = signal(false);
   showGroupInfo = signal(false);
-  activeConversation = signal<Conversation | null>(null);
-  memberSearchQuery = signal('');
-  memberSearchResults = signal<Profile[]>([]);
 
-  isAdmin = computed(() => {
-    const me = this.userService.profile();
-    const conv = this.activeConversation();
-    if (!me || !conv || !conv.members) return false;
-    return conv.members.find((m) => m.userId === me.id)?.isAdmin || false;
-  });
-
-  ngOnInit(): void {
-    this.conversationService.loadMyConversations();
-
-    const currentId = this.conversationService.activeConversationId();
-    if (currentId) {
-      this.chatService.joinRoom(currentId);
-    }
-
-    this.searchSubject
-      .pipe(debounceTime(500), distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe((query) => {
-        this.performSearch(query);
-      });
-
-    this.typingSubject.pipe(debounceTime(3000), takeUntil(this.destroy$)).subscribe(() => {
-      const activeConversationId = this.conversationService.activeConversationId();
-      if (activeConversationId) {
-        this.chatService.notifyStoppedTyping(activeConversationId);
-        this.lastTypingEventSentAt = 0;
+  constructor() {
+    // React to conversation selection changes
+    effect(() => {
+      const id = this.conversationService.activeConversationId();
+      if (id) {
+        this.onConversationSelected(id);
       }
     });
+  }
+
+  ngOnInit(): void {
+    this.conversationService.loadMyConversations().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   ngOnDestroy(): void {
@@ -125,254 +54,49 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadActiveConversationDetails(id: string) {
-    this.conversationService.getConversation(id).subscribe((res) => {
-      if (res.success) {
-        this.activeConversation.set(res.data);
-      }
-    });
-  }
-
-  onMemberSearch() {
-    const query = this.memberSearchQuery().trim();
-    if (query.length >= 2) {
-      this.userService.searchUsers(query).subscribe((res) => {
-        if (res.success) {
-          // Filter out existing members
-          const members = this.activeConversation()?.members || [];
-          this.memberSearchResults.set(
-            res.data.filter((u) => !members.find((m) => m.userId === u.id)),
-          );
-        }
-      });
-    } else {
-      this.memberSearchResults.set([]);
-    }
-  }
-
-  addMember(userId: string) {
-    const convId = this.conversationService.activeConversationId();
-    if (convId) {
-      this.conversationService.addMemberToGroup(convId, userId).subscribe((res) => {
-        if (res.success) {
-          // Locally update the member list signal
-          const userToAdd = this.memberSearchResults().find((u) => u.id === userId);
-          if (userToAdd) {
-            this.activeConversation.update((current) => {
-              if (!current) return null;
-              const newMember = {
-                userId: userToAdd.id,
-                userName: userToAdd.username,
-                displayName: userToAdd.displayName || userToAdd.username,
-                pictureUrl: userToAdd.profilePictureUrl,
-                isAdmin: false,
-              };
-              return {
-                ...current,
-                members: [...(current.members || []), newMember],
-              };
-            });
-          }
-
-          this.memberSearchQuery.set('');
-          this.memberSearchResults.set([]);
-          this.conversationService.loadMyConversations();
-        }
-      });
-    }
-  }
-
-  onGroupImageSelected(event: any) {
-    const file: File = event.target.files[0];
-    const convId = this.conversationService.activeConversationId();
-    if (file && convId) {
-      this.conversationService.uploadGroupImage(convId, file).subscribe((res) => {
-        if (res.success) {
-          const newImageUrl = res.data;
-          // Update active conversation signal
-          this.activeConversation.update((current) =>
-            current ? { ...current, imageUrl: newImageUrl } : null,
-          );
-          // Update global conversations signal
-          this.conversationService.conversations.update((list) =>
-            list.map((c) => (c.id === convId ? { ...c, imageUrl: newImageUrl } : c)),
-          );
-        }
-      });
-    }
-  }
-
-  removeMember(userId: string) {
-    const convId = this.conversationService.activeConversationId();
-    if (convId) {
-      this.conversationService.removeGroupMember(convId, userId).subscribe((res) => {
-        if (res.success) {
-          this.loadActiveConversationDetails(convId);
-        }
-      });
-    }
-  }
-
-  leaveGroup() {
-    const convId = this.conversationService.activeConversationId();
-    if (convId) {
-      this.conversationService.leaveGroup(convId).subscribe((res) => {
-        if (res.success) {
-          this.conversationService.activeConversationId.set(null);
-          this.activeConversation.set(null);
-          this.showGroupInfo.set(false);
-          this.conversationService.loadMyConversations();
-        }
-      });
-    }
-  }
-
-  onSearch() {
-    this.searchSubject.next(this.searchQuery());
-  }
-
-  onScroll(event: any) {
-    const element = event.target as HTMLElement;
-
-    // Detect if user is near bottom (50px tolerance)
-    this.isNearBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 50;
-
-    // Pagination logic (load older messages)
-    if (element.scrollTop === 0) {
-      const activeId = this.conversationService.activeConversationId();
-      const messages = this.conversationService.messages();
-
-      if (
-        activeId &&
-        messages.length > 0 &&
-        !this.conversationService.isLoadingHistory() &&
-        this.conversationService.hasMoreMessages()
-      ) {
-        const prevScrollHeight = element.scrollHeight;
-        const firstMessageId = messages[0].id;
-
-        this.conversationService.loadOlderMessages(activeId, firstMessageId).subscribe(() => {
-          // Maintain scroll position after prepending messages
-          setTimeout(() => {
-            element.scrollTop = element.scrollHeight - prevScrollHeight;
-          }, 0);
-        });
-      }
-    }
-  }
-
-  onInput() {
-    const activeConversationId = this.conversationService.activeConversationId();
-    if (!activeConversationId) return;
-
-    const now = Date.now();
-    // Throttling: only send UserTyping once every 5 seconds while user is typing
-    if (now - this.lastTypingEventSentAt > 5000) {
-      this.chatService.notifyTyping(activeConversationId);
-      this.lastTypingEventSentAt = now;
-    }
-
-    this.typingSubject.next();
-  }
-
-  onFileSelected(event: any) {
-    const files: FileList = event.target.files;
-    if (files.length === 0) return;
-
-    this.isUploading.set(true);
-    this.conversationService.uploadAttachments(Array.from(files)).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.pendingAttachments.update((current) => [...current, ...res.data]);
-        }
-        this.isUploading.set(false);
-        event.target.value = ''; // Reset input
-      },
-      error: (err) => {
-        console.error('Upload failed', err);
-        this.isUploading.set(false);
-      },
-    });
-  }
-
-  removeAttachment(index: number) {
-    this.pendingAttachments.update((current) => current.filter((_, i) => i !== index));
-  }
-
-  private performSearch(query: string) {
-    const trimmedQuery = query.trim();
-    if (trimmedQuery.length >= 3) {
-      this.userService.searchUsers(trimmedQuery).subscribe({
-        next: (res) => {
-          if (res.success) {
-            this.searchResults.set(res.data);
-          }
-        },
-      });
-    } else {
-      this.searchResults.set([]);
-    }
-  }
-
-  startChat(username: string) {
-    this.conversationService.createPrivateConversation(username).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.searchQuery.set('');
-          this.searchResults.set([]);
-          this.conversationService.loadMyConversations();
-          const conversationId = res.data;
-          if (conversationId) {
-            this.selectConversation(conversationId);
-          }
-        }
-      },
-    });
-  }
-
-  selectConversation(id: string) {
-    const previousId = this.conversationService.activeConversationId();
-    if (previousId) {
-      this.chatService.leaveRoom(previousId);
-    }
-
+  private onConversationSelected(id: string) {
     this.chatService.clearTypingUsers();
     this.showGroupInfo.set(false);
-    this.conversationService.loadMyConversations();
-    this.conversationService.loadInitialHistory(id).subscribe(() => {
-      this.chatService.joinRoom(id);
-      this.isNearBottom = true;
-      this.scrollToBottom();
-      this.loadActiveConversationDetails(id);
-    });
+
+    of(id)
+      .pipe(
+        switchMap((convId) => this.conversationService.loadInitialHistory(convId)),
+        switchMap(() => this.conversationService.loadConversationDetails(id)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(() => {
+        this.chatService.joinRoom(id);
+      });
   }
 
-  private scrollToBottom() {
-    if (this.scrollContainer) {
-      this.scrollContainer.nativeElement.scrollTop =
-        this.scrollContainer.nativeElement.scrollHeight;
-    }
+  getOtherMemberInfo(): string | null {
+    const conv = this.conversationService.activeConversation();
+    const me = this.userService.profile()?.id;
+    if (!conv || conv.isGroup || !me || !conv.members) return null;
+
+    const other = conv.members.find(m => m.userId !== me);
+    if (!other) return null;
+
+    const status: string = `Status: ${other.status || (this.isOtherMemberOnline() ? 'Online' : 'Offline')}`;
+
+    const bio: string = `${other.bio ? `| Bio: ${other.bio}` : ''}`;
+
+    return  `${status} ${bio}`;
   }
 
-  sendMessage(inputElement: HTMLInputElement) {
-    const content = inputElement.value.trim();
-    const conversationId = this.conversationService.activeConversationId();
-    const attachments = this.pendingAttachments();
-
-    if ((content || attachments.length > 0) && conversationId) {
-      this.isNearBottom = true;
-      this.chatService
-        .sendMessage(conversationId, content, attachments)
-        .then((message) => {
-          if (message) {
-            this.conversationService.pushMessage(message);
-          }
-          inputElement.value = '';
-          this.pendingAttachments.set([]);
-          this.chatService.notifyStoppedTyping(conversationId);
-          this.lastTypingEventSentAt = 0;
-        })
-        .catch((err) => console.error('Failed to send message', err));
+  getConversationAvatar(conv: any) {
+    if (conv?.imageUrl) {
+      return `${environment.baseUrl}/${conv.imageUrl}`;
     }
+    return 'https://api.dicebear.com/7.x/notionists/svg?seed=Messenger';
+  }
+
+  isOtherMemberOnline(): boolean {
+    const conv = this.conversationService.activeConversation();
+    const me = this.userService.profile()?.id;
+    if (!conv || conv.isGroup || !me || !conv.members) return false;
+
+    const otherId = conv.members.find((m) => m.userId !== me)?.userId;
+    return otherId ? this.chatService.onlineUsers().includes(otherId) : false;
   }
 }

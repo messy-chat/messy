@@ -13,7 +13,7 @@ public static class IdentityServiceConfiguration
 {
     public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddIdentity<User, IdentityRole>(options =>
+        services.AddIdentity<User, UserRole>(options =>
             {
                 options.Password.RequireDigit = true;
                 options.Password.RequiredLength = 8;

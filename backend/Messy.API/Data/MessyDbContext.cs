@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Messy.API.Data;
 
-public class MessyDbContext : IdentityDbContext<User>
+public class MessyDbContext : IdentityDbContext<User, UserRole, Guid>
 {
     public MessyDbContext(DbContextOptions<MessyDbContext> options) : base(options)
     {

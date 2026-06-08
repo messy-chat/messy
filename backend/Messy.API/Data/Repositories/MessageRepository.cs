@@ -27,6 +27,6 @@ public class MessageRepository(MessyDbContext context) : IMessageRepository
 
     public void Add(Message message)
     {
-        context.Messages.Add(message);
+        context.Messages.AddAsync(message);
     }
 }

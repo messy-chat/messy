@@ -11,6 +11,7 @@ import {
 import { ApiResponse } from '../models/response.model';
 import { tap } from 'rxjs';
 import { ChatService } from './chat.service';
+import { UserService } from './user.service';
 
 @Injectable({
   providedIn: 'root',
@@ -18,15 +19,22 @@ import { ChatService } from './chat.service';
 export class ConversationService {
   private http = inject(HttpClient);
   private chatService = inject(ChatService);
+  private userService = inject(UserService);
   private apiUrl = `${environment.apiUrl}/conversations`;
 
   conversations = signal<Conversation[]>([]);
   activeConversationId = signal<string | null>(null);
+  activeConversation = signal<Conversation | null>(null);
   messages = signal<MessageDto[]>([]);
   isLoadingHistory = signal(false);
   hasMoreMessages = signal(true);
 
   constructor() {
+    this.initRealTimeListeners();
+  }
+
+  private initRealTimeListeners() {
+    // Listen for new messages
     this.chatService.messageReceived$.subscribe((message: MessageDto) => {
       const activeId = this.activeConversationId();
 
@@ -37,40 +45,98 @@ export class ConversationService {
         });
       }
 
-      this.conversations.update((list) => {
-        const index = list.findIndex((c) => c.id === message.conversationId);
-        if (index === -1) return list;
+      this.updateConversationLastMessage(message);
+    });
 
-        const updatedConversation: Conversation = {
-          ...list[index],
-          lastMessage: message.content || (message.attachments?.length ? 'Sent an attachment' : ''),
-          lastMessageSentAt: message.sentAt,
-        };
-
-        const newList = [...list];
-        newList.splice(index, 1);
-        newList.unshift(updatedConversation);
-
-        return newList;
+    // Listen for new conversations (e.g. being added to a group)
+    this.chatService.conversationCreated$.subscribe((conv) => {
+      this.conversations.update((current) => {
+        if (current.find((c) => c.id === conv.id)) return current;
+        return [conv, ...current];
       });
+    });
+
+    // Listen for conversation updates (name/image)
+    this.chatService.conversationUpdated$.subscribe((data) => {
+      this.conversations.update((list) =>
+        list.map((c) =>
+          c.id === data.id
+            ? { ...c, name: data.name || c.name, imageUrl: data.imageUrl || c.imageUrl }
+            : c,
+        ),
+      );
+
+      if (this.activeConversationId() === data.id) {
+        this.activeConversation.update((c) =>
+          c ? { ...c, name: data.name || c.name, imageUrl: data.imageUrl || c.imageUrl } : c,
+        );
+      }
+    });
+
+    // Listen for member added
+    this.chatService.memberAdded$.subscribe((data) => {
+      if (this.activeConversationId() === data.conversationId) {
+        this.activeConversation.update((c) => {
+          if (!c) return c;
+          const currentMembers = c.members || [];
+          if (currentMembers.find((m) => m.userId === data.member.userId)) return c;
+          return { ...c, members: [...currentMembers, data.member] };
+        });
+      }
+    });
+
+    this.chatService.memberRemoved$.subscribe((data) => {
+      const myId = this.userService.profile()?.id;
+
+      if (data.userId === myId) {
+        this.conversations.update((list) => list.filter((c) => c.id !== data.conversationId));
+
+        if (this.activeConversationId() === data.conversationId) {
+          this.activeConversationId.set(null);
+          this.activeConversation.set(null);
+          this.messages.set([]);
+        }
+      } else {
+        if (this.activeConversationId() === data.conversationId) {
+          this.activeConversation.update((c) => {
+            if (!c || !c.members) return c;
+            return { ...c, members: c.members.filter((m) => m.userId !== data.userId) };
+          });
+        }
+      }
+    });
+  }
+
+  private updateConversationLastMessage(message: MessageDto) {
+    this.conversations.update((list) => {
+      const index = list.findIndex((c) => c.id === message.conversationId);
+      if (index === -1) return list;
+
+      const updatedConversation: Conversation = {
+        ...list[index],
+        lastMessage: message.content || (message.attachments?.length ? 'Sent an attachment' : ''),
+        lastMessageSentAt: message.sentAt,
+      };
+
+      const newList = [...list];
+      newList.splice(index, 1);
+      newList.unshift(updatedConversation);
+
+      return newList;
     });
   }
 
   loadMyConversations() {
-    return this.http
-      .get<ApiResponse<Conversation[]>>(this.apiUrl)
-      .pipe(
-        tap((res) => {
-          if (res.success) {
-            this.conversations.set(res.data);
-          }
-        }),
-      )
-      .subscribe();
+    return this.http.get<ApiResponse<Conversation[]>>(this.apiUrl).pipe(
+      tap((res) => {
+        if (res.success) {
+          this.conversations.set(res.data);
+        }
+      }),
+    );
   }
 
   loadInitialHistory(conversationId: string) {
-    console.log('ConversationService: LOADING HISTORY FOR', conversationId);
     this.activeConversationId.set(conversationId);
     this.isLoadingHistory.set(true);
     this.hasMoreMessages.set(true);
@@ -80,7 +146,6 @@ export class ConversationService {
       .pipe(
         tap((res) => {
           if (res.success) {
-            console.log('ConversationService: HISTORY LOADED', res.data.length, 'messages');
             this.messages.set(res.data);
             if (res.data.length < 30) {
               this.hasMoreMessages.set(false);
@@ -110,16 +175,22 @@ export class ConversationService {
       );
   }
 
+  loadConversationDetails(id: string) {
+    return this.http.get<ApiResponse<Conversation>>(`${this.apiUrl}/${id}`).pipe(
+      tap((res) => {
+        if (res.success) {
+          this.activeConversation.set(res.data);
+        }
+      }),
+    );
+  }
+
   createPrivateConversation(targetUsername: string) {
     return this.http.post<ApiResponse<string>>(`${this.apiUrl}/private/${targetUsername}`, {});
   }
 
   createGroup(dto: CreateGroupDto) {
     return this.http.post<ApiResponse<string>>(`${this.apiUrl}/group`, dto);
-  }
-
-  getConversation(conversationId: string) {
-    return this.http.get<ApiResponse<Conversation>>(`${this.apiUrl}/${conversationId}`);
   }
 
   addGroupMember(conversationId: string, userId: string) {
@@ -134,14 +205,14 @@ export class ConversationService {
     return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/${conversationId}/leave`);
   }
 
+  updateConversationName(conversationId: string, name: string) {
+    return this.http.put<ApiResponse<any>>(`${this.apiUrl}/${conversationId}/name`, { name });
+  }
+
   uploadGroupImage(conversationId: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<ApiResponse<string>>(`${this.apiUrl}/${conversationId}/image`, formData);
-  }
-
-  addMemberToGroup(conversationId: string, userId: string) {
-    return this.http.post<ApiResponse<any>>(`${this.apiUrl}/${conversationId}/members`, { userId });
   }
 
   uploadAttachments(files: File[]) {
@@ -151,34 +222,5 @@ export class ConversationService {
       `${environment.apiUrl}/files/upload`,
       formData,
     );
-  }
-
-  pushMessage(message: MessageDto) {
-    if (!message) return;
-    console.log('ConversationService: MANUAL PUSH', message);
-    const activeId = this.activeConversationId();
-    const msgConversationId = message.conversationId || activeId;
-
-    if (activeId && msgConversationId === activeId) {
-      this.messages.update((current) => {
-        if (current.find((m) => m.id === message.id)) return current;
-        return [...current, message];
-      });
-    }
-
-    if (msgConversationId) {
-      this.conversations.update((list) => {
-        return list.map((conv) => {
-          if (conv.id === msgConversationId) {
-            return {
-              ...conv,
-              lastMessage: message.content,
-              lastMessageSentAt: message.sentAt,
-            };
-          }
-          return conv;
-        });
-      });
-    }
   }
 }
