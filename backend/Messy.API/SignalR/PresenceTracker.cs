@@ -4,19 +4,19 @@ public class PresenceTracker
 {
     private static readonly Dictionary<string, List<string>> OnlineUsers = new();
 
-    public Task<bool> UserConnected(string username, string connectionId)
+    public Task<bool> UserConnected(string userId, string connectionId)
     {
         bool isOnline = false;
 
         lock (OnlineUsers)
         {
-            if (OnlineUsers.ContainsKey(username))
+            if (OnlineUsers.ContainsKey(userId))
             {
-                OnlineUsers[username].Add(connectionId);
+                OnlineUsers[userId].Add(connectionId);
             }
             else
             {
-                OnlineUsers.Add(username, new List<string> { connectionId });
+                OnlineUsers.Add(userId, new List<string> { connectionId });
                 isOnline = true;
             }
         }
@@ -24,19 +24,19 @@ public class PresenceTracker
         return Task.FromResult(isOnline);
     }
     
-    public Task<bool> UserDisconnected(string username, string connectionId)
+    public Task<bool> UserDisconnected(string userId, string connectionId)
     {
         bool isOffline = false;
 
         lock (OnlineUsers)
         {
-            if (!OnlineUsers.ContainsKey(username)) return Task.FromResult(isOffline);
+            if (!OnlineUsers.ContainsKey(userId)) return Task.FromResult(isOffline);
 
-            OnlineUsers[username].Remove(connectionId);
+            OnlineUsers[userId].Remove(connectionId);
 
-            if (OnlineUsers[username].Count == 0)
+            if (OnlineUsers[userId].Count == 0)
             {
-                OnlineUsers.Remove(username);
+                OnlineUsers.Remove(userId);
                 isOffline = true;
             }
         }
@@ -44,14 +44,14 @@ public class PresenceTracker
         return Task.FromResult(isOffline);
     }
 
-    public Task<string[]> GetOnlineUsers()
+    public Task<string[]> GetOnlineUserIds()
     {
-        string[] onlineUsers;
+        string[] onlineUserIds;
         lock (OnlineUsers)
         {
-            onlineUsers = OnlineUsers.OrderBy(k => k.Key).Select(k => k.Key).ToArray();
+            onlineUserIds = OnlineUsers.OrderBy(k => k.Key).Select(k => k.Key).ToArray();
         }
 
-        return Task.FromResult(onlineUsers);
+        return Task.FromResult(onlineUserIds);
     }
 }

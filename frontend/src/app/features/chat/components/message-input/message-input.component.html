@@ -40,7 +40,7 @@
       class="input input-bordered flex-1 focus:input-primary"
       autocomplete="off"
     />
-    <button type="submit" class="btn btn-primary" [disabled]="this.messageContent.trim() && this.pendingAttachments().length === 0">
+    <button type="submit" class="btn btn-primary" [disabled]="!messageContent.trim() && pendingAttachments().length === 0">
       Send
     </button>
   </form>

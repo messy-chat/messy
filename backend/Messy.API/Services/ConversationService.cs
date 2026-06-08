@@ -22,12 +22,15 @@ public class ConversationService(
                 string name = c.Name ?? "Unknown";
 
                 string? imageUrl = c.ImageUrl;
+
+                Guid? otherUserId = null;
                 
                 if (!c.IsGroup)
                 {
                     var otherMember = c.Members.FirstOrDefault(m => m.UserId != userId);
                     name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
                     imageUrl = otherMember?.User.ProfilePictureUrl;
+                    otherUserId = c.Members.FirstOrDefault(m => m.UserId != userId)?.UserId;
                 }
 
                 return new ConversationDto
@@ -35,6 +38,7 @@ public class ConversationService(
                     Id = c.Id,
                     Name = name,
                     IsGroup = c.IsGroup,
+                    OtherUserId = otherUserId,
                     LastMessage = lastMessage?.Content,
                     LastMessageSentAt = lastMessage?.TimeStamp,
                     ImageUrl = imageUrl
@@ -73,7 +77,9 @@ public class ConversationService(
                 Username = m.User.UserName ?? string.Empty,
                 DisplayName = m.User.DisplayName,
                 AvatarUrl = m.User.ProfilePictureUrl,
-                IsAdmin = m.IsAdmin
+                IsAdmin = m.IsAdmin,
+                Bio = m.User.Bio,
+                Status = m.User.Status
             }).ToList()
         };
     }

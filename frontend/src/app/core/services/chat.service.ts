@@ -54,21 +54,21 @@ export class ChatService {
         console.error('SignalR Hub connection error:', error);
       });
 
-    this.hubConnection.on('GetOnlineUsers', (users: string[]) => {
+    this.hubConnection.on('GetOnlineUsers', (userIds: string[]) => {
       this.ngZone.run(() => {
-        this.onlineUsers.set(users);
+        this.onlineUsers.set(userIds);
       });
     });
 
-    this.hubConnection.on('UserIsOnline', (username: string) => {
+    this.hubConnection.on('UserIsOnline', (userId: string) => {
       this.ngZone.run(() => {
-        this.onlineUsers.update((users) => [...users, username]);
+        this.onlineUsers.update((users) => [...users, userId]);
       });
     });
 
-    this.hubConnection.on('UserIsOffline', (username: string) => {
+    this.hubConnection.on('UserIsOffline', (userId: string) => {
       this.ngZone.run(() => {
-        this.onlineUsers.update((users) => users.filter((x) => x !== username));
+        this.onlineUsers.update((users) => users.filter((x) => x !== userId));
       });
     });
 

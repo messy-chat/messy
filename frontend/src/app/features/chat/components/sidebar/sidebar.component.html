@@ -1,0 +1,65 @@
+<div class="w-full h-full flex flex-col border-r border-base-300">
+  <div class="p-4 border-b border-base-300 bg-base-200">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold">Conversations</h2>
+      <button routerLink="/create-group" class="btn btn-primary btn-xs">+ Group</button>
+    </div>
+    <div class="relative">
+      <input
+        type="text"
+        [ngModel]="this.searchQuery()"
+        (ngModelChange)="this.onSearchChange($event)"
+        placeholder="Search users..."
+        class="input input-bordered input-sm w-full"
+      />
+      @if (searchResults().length > 0) {
+        <div class="absolute z-10 w-full mt-1 bg-base-100 shadow-xl rounded-box max-h-60 overflow-y-auto border border-base-300">
+          @for (user of searchResults(); track user.id) {
+            <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
+              <div class="flex items-center gap-2 overflow-hidden">
+                <div class="avatar" [ngClass]="(chatService.onlineUsers().includes(user.id)) ? 'avatar-online' : 'avatar-offline'">
+                  <div class="rounded-full w-8">
+                    <img [src]="this.getUserAvatar(user)" [alt]="user.displayName" />
+                  </div>
+                </div>
+                <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
+              </div>
+              <button (click)="this.startChat(user.username)" class="btn btn-primary btn-xs">Chat</button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+  <div class="flex-1 overflow-y-auto">
+    @for (conv of this.conversationService.conversations(); track conv.id) {
+      <div
+        (click)="this.selectConversation(conv.id)"
+        class="p-4 cursor-pointer hover:bg-base-200 border-b border-base-300 transition-colors"
+        [ngClass]="{'bg-primary/10 border-l-4 border-l-primary': this.conversationService.activeConversationId() === conv.id}"
+      >
+        <div class="flex items-center gap-3">
+          <div class="avatar flex-shrink-0" [ngClass]="(!conv.isGroup && chatService.onlineUsers().includes(conv.otherUserId || '')) ? 'avatar-online' : 'avatar-offline'" >
+
+            <div class="rounded-full w-10">
+              <img [src]="this.getConversationAvatar(conv)" [alt]="conv.name" />
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-start">
+              <h3 class="font-semibold truncate">{{ conv.name }}</h3>
+              @if (conv.lastMessageSentAt) {
+                <span class="text-xs opacity-50">{{ conv.lastMessageSentAt | date: 'shortTime' }}</span>
+              }
+            </div>
+            @if (conv.lastMessage) {
+              <p class="text-sm opacity-70 truncate">{{ conv.lastMessage }}</p>
+            }
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="p-8 text-center opacity-50">No conversations found.</div>
+    }
+  </div>
+</div>

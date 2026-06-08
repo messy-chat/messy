@@ -10,7 +10,33 @@
         <img [src]="this.getConversationAvatar(this.conversationService.activeConversation())" />
       </div>
     </div>
-    <h2 class="text-xl font-bold text-center">{{ this.conversationService.activeConversation()?.name }}</h2>
+
+    @if (isEditingName()) {
+      <div class="flex items-center gap-2 w-full px-4">
+        <input
+          type="text"
+          [(ngModel)]="newGroupName"
+          (keyup.enter)="saveGroupName()"
+          class="input input-sm input-bordered w-full"
+          autoFocus
+        />
+        <button class="btn btn-sm btn-success btn-circle" (click)="saveGroupName()">✓</button>
+        <button class="btn btn-sm btn-ghost btn-circle" (click)="isEditingName.set(false)">✕</button>
+      </div>
+    } @else {
+      <div class="flex items-center gap-2 justify-center group relative w-full px-8">
+        <h2 class="text-xl font-bold text-center truncate">{{ this.conversationService.activeConversation()?.name }}</h2>
+        @if (this.isAdmin()) {
+          <button
+            (click)="startEditingName()"
+            class="btn btn-xs btn-ghost btn-circle opacity-0 group-hover:opacity-100 transition-opacity absolute -right-2"
+            title="Edit group name"
+          >
+            ✏️
+          </button>
+        }
+      </div>
+    }
 
     @if (this.isAdmin()) {
       <input #groupImageInput type="file" class="hidden" accept="image/*" (change)="this.onGroupImageSelected($event)" />
@@ -34,7 +60,7 @@
             @for (user of this.memberSearchResults(); track user.id) {
               <div class="p-2 hover:bg-base-200 flex items-center justify-between border-b border-base-200 last:border-0">
                 <div class="flex items-center gap-2">
-                  <div class="avatar">
+                  <div class="avatar" [ngClass]="(chatService.onlineUsers().includes(user.id)) ? 'avatar-online' : 'avatar-offline'">
                     <div class="rounded-full w-6">
                       <img [src]="this.getUserAvatar(user)" />
                     </div>
@@ -56,7 +82,7 @@
       @for (member of this.conversationService.activeConversation()?.members; track member.userId) {
         <div class="flex items-center justify-between group">
           <div class="flex items-center gap-2 overflow-hidden">
-            <div class="avatar">
+            <div class="avatar" [ngClass]="(this.chatService.onlineUsers().includes(member.userId || '')) ? 'avatar-online' : 'avatar-offline'">
               <div class="rounded-full w-8">
                 <img [src]="this.getUserAvatarFromMember(member)" />
               </div>

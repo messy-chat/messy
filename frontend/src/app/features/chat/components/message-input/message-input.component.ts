@@ -11,7 +11,7 @@ import { Attachment } from '../../../../core/models/conversation.model';
   selector: 'app-message-input',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: './message-input.component.html',
+  templateUrl: './message-input.component.html',
 })
 export class MessageInputComponent {
   protected conversationService = inject(ConversationService);

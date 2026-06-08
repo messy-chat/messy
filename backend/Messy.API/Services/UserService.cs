@@ -107,6 +107,8 @@ public class UserService(UserManager<User> userManager) : IUserService
             Username = user.UserName ?? string.Empty,
             DisplayName = user.DisplayName,
             AvatarUrl = user.ProfilePictureUrl,
+            Bio = user.Bio,
+            Status = user.Status
         };
     }
 }

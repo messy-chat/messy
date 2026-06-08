@@ -82,34 +82,35 @@ public class ChatHub(
 
     public override async Task OnConnectedAsync()
     {
-        var username = Context.User?.Identity?.Name;
-        if (username == null) return;
+        var currentUserId = GetCurrentUserId();
+        var username = Context.User?.Identity!.Name;
+        
+        if (currentUserId == Guid.Empty || username == null) return;
 
-        var isOnline = await tracker.UserConnected(username, Context.ConnectionId);
+        var isOnline = await tracker.UserConnected(currentUserId.ToString(), Context.ConnectionId);
 
         if (isOnline)
         {
-            await userService.UpdateUserStatusAsync(username, "Online");
-            await Clients.Others.SendAsync("UserIsOnline", username);
+            await Clients.Others.SendAsync("UserIsOnline", currentUserId.ToString());
         }
 
-        var currentUsers = await tracker.GetOnlineUsers();
-        await Clients.Caller.SendAsync("GetOnlineUsers", currentUsers);
+        var userIds = await tracker.GetOnlineUserIds();
+        await Clients.Caller.SendAsync("GetOnlineUsers", userIds);
 
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var currentUserId = GetCurrentUserId();
         var username = Context.User?.Identity?.Name;
-        if (username == null) return;
+        if (currentUserId == Guid.Empty || username == null) return;
 
-        var isOffline = await tracker.UserDisconnected(username, Context.ConnectionId);
+        var isOffline = await tracker.UserDisconnected(currentUserId.ToString(), Context.ConnectionId);
 
         if (isOffline)
         {
-            await userService.UpdateUserStatusAsync(username, "Offline");
-            await Clients.Others.SendAsync("UserIsOffline", username);
+            await Clients.Others.SendAsync("UserIsOffline", currentUserId.ToString());
         }
 
         await base.OnDisconnectedAsync(exception);

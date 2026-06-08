@@ -7,4 +7,6 @@ public class ConversationMemberDto
     public string? DisplayName { get; set; }
     public string? AvatarUrl { get; set; }
     public bool IsAdmin { get; set; }
+    public string? Bio { get; set; }
+    public string? Status { get; set; }
 }

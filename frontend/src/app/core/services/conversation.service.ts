@@ -85,16 +85,19 @@ export class ConversationService {
       }
     });
 
-    // Listen for member removed
     this.chatService.memberRemoved$.subscribe((data) => {
-      if (this.activeConversationId() === data.conversationId) {
-        const myId = this.userService.profile()?.id;
-        if (data.userId === myId) {
-          // If I was removed, clear active conversation
+      const myId = this.userService.profile()?.id;
+
+      if (data.userId === myId) {
+        this.conversations.update((list) => list.filter((c) => c.id !== data.conversationId));
+
+        if (this.activeConversationId() === data.conversationId) {
           this.activeConversationId.set(null);
           this.activeConversation.set(null);
           this.messages.set([]);
-        } else {
+        }
+      } else {
+        if (this.activeConversationId() === data.conversationId) {
           this.activeConversation.update((c) => {
             if (!c || !c.members) return c;
             return { ...c, members: c.members.filter((m) => m.userId !== data.userId) };

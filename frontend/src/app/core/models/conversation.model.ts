@@ -10,12 +10,17 @@ export interface ConversationMember {
   displayName: string;
   avatarUrl?: string;
   isAdmin: boolean;
+  bio?: string;
+  status?: string;
 }
 
 export interface Conversation {
   id: string;
   name: string;
   isGroup: boolean;
+  otherUserId?: string;
+  bio?: string;
+  status?: string;
   lastMessage?: string;
   lastMessageSentAt?: string;
   imageUrl?: string;

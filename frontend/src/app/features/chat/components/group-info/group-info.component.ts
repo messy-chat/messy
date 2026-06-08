@@ -5,21 +5,26 @@ import { ConversationService } from '../../../../core/services/conversation.serv
 import { UserService } from '../../../../core/services/user.service';
 import { Profile } from '../../../../core/models/profile.model';
 import { environment } from '../../../../../environments/environment';
+import { ChatService } from '../../../../core/services/chat.service';
 
 @Component({
   selector: 'app-group-info',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: ``,
+  templateUrl: `./group-info.component.html`,
 })
 export class GroupInfoComponent {
   protected conversationService = inject(ConversationService);
   protected userService = inject(UserService);
+  protected chatService = inject(ChatService);
 
   @Output() close = new EventEmitter<void>();
 
   memberSearchQuery = '';
   memberSearchResults = signal<Profile[]>([]);
+
+  isEditingName = signal(false);
+  newGroupName = '';
 
   isAdmin = computed(() => {
     const me = this.userService.profile();
@@ -93,5 +98,36 @@ export class GroupInfoComponent {
   getConversationAvatar(conv: any) {
     if (conv?.imageUrl) return `${environment.baseUrl}/${conv.imageUrl}`;
     return this.userService.defaultAvatar;
+  }
+
+  startEditingName() {
+    const currentName = this.conversationService.activeConversation()?.name;
+    if (currentName) {
+      this.newGroupName = currentName;
+      this.isEditingName.set(true);
+    }
+  }
+
+  saveGroupName() {
+    const convId = this.conversationService.activeConversationId();
+    const trimmedName = this.newGroupName.trim();
+
+    if (
+      convId &&
+      trimmedName &&
+      trimmedName !== this.conversationService.activeConversation()?.name
+    ) {
+      this.conversationService.updateConversationName(convId, trimmedName).subscribe({
+        next: () => {
+          this.isEditingName.set(false);
+        },
+        error: () => {
+          alert('Nie udało się zmienić nazwy grupy.');
+          this.isEditingName.set(false);
+        },
+      });
+    } else {
+      this.isEditingName.set(false); // Anuluj edycję, jeśli nazwa jest taka sama lub pusta
+    }
   }
 }

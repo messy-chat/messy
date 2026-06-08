@@ -10,7 +10,7 @@
       <!-- Chat Header -->
       <div class="p-4 border-b border-base-300 bg-base-200 flex justify-between items-center">
         <div class="flex items-center gap-3">
-          <div class="avatar">
+          <div class="avatar" [ngClass]="(isOtherMemberOnline() ? 'avatar-online' : 'avatar-offline')">
             <div class="rounded-full w-10">
               <img
                 [src]="getConversationAvatar(conversationService.activeConversation())"
@@ -23,6 +23,10 @@
             @if (conversationService.activeConversation()?.isGroup) {
               <span class="text-xs opacity-50">
                 {{ conversationService.activeConversation()?.members?.length }} members
+              </span>
+            } @else {
+              <span class="text-xs opacity-60 italic block  truncate">
+                {{ getOtherMemberInfo() }}
               </span>
             }
           </div>

@@ -8,6 +8,7 @@ import { ConversationService } from '../../../core/services/conversation.service
 import { ChatService } from '../../../core/services/chat.service';
 import { Subject, switchMap, takeUntil, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { UserService } from '../../../core/services/user.service';
 
 @Component({
   selector: 'app-chat-layout',
@@ -24,6 +25,7 @@ import { environment } from '../../../../environments/environment';
 export class ChatLayoutComponent implements OnInit, OnDestroy {
   protected conversationService = inject(ConversationService);
   protected chatService = inject(ChatService);
+  protected userService = inject(UserService);
 
   private destroy$ = new Subject<void>();
   showGroupInfo = signal(false);
@@ -56,13 +58,30 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
     this.chatService.clearTypingUsers();
     this.showGroupInfo.set(false);
 
-    of(id).pipe(
-      switchMap(convId => this.conversationService.loadInitialHistory(convId)),
-      switchMap(() => this.conversationService.loadConversationDetails(id)),
-      takeUntil(this.destroy$)
-    ).subscribe(() => {
-      this.chatService.joinRoom(id);
-    });
+    of(id)
+      .pipe(
+        switchMap((convId) => this.conversationService.loadInitialHistory(convId)),
+        switchMap(() => this.conversationService.loadConversationDetails(id)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(() => {
+        this.chatService.joinRoom(id);
+      });
+  }
+
+  getOtherMemberInfo(): string | null {
+    const conv = this.conversationService.activeConversation();
+    const me = this.userService.profile()?.id;
+    if (!conv || conv.isGroup || !me || !conv.members) return null;
+
+    const other = conv.members.find(m => m.userId !== me);
+    if (!other) return null;
+
+    const status: string = `Status: ${other.status || (this.isOtherMemberOnline() ? 'Online' : 'Offline')}`;
+
+    const bio: string = `${other.bio ? `| Bio: ${other.bio}` : ''}`;
+
+    return  `${status} ${bio}`;
   }
 
   getConversationAvatar(conv: any) {
@@ -70,5 +89,14 @@ export class ChatLayoutComponent implements OnInit, OnDestroy {
       return `${environment.baseUrl}/${conv.imageUrl}`;
     }
     return 'https://api.dicebear.com/7.x/notionists/svg?seed=Messenger';
+  }
+
+  isOtherMemberOnline(): boolean {
+    const conv = this.conversationService.activeConversation();
+    const me = this.userService.profile()?.id;
+    if (!conv || conv.isGroup || !me || !conv.members) return false;
+
+    const otherId = conv.members.find((m) => m.userId !== me)?.userId;
+    return otherId ? this.chatService.onlineUsers().includes(otherId) : false;
   }
 }
