@@ -21,10 +21,13 @@ public class ConversationService(
                 var lastMessage = c.Messages.OrderByDescending(m => m.TimeStamp).FirstOrDefault();
                 string name = c.Name ?? "Unknown";
 
+                string? imageUrl = c.ImageUrl;
+                
                 if (!c.IsGroup)
                 {
                     var otherMember = c.Members.FirstOrDefault(m => m.UserId != userId);
                     name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
+                    imageUrl = otherMember?.User.ProfilePictureUrl;
                 }
 
                 return new ConversationDto
@@ -34,7 +37,7 @@ public class ConversationService(
                     IsGroup = c.IsGroup,
                     LastMessage = lastMessage?.Content,
                     LastMessageSentAt = lastMessage?.TimeStamp,
-                    ImageUrl = c.ImageUrl
+                    ImageUrl = imageUrl
                 };
             })
             .OrderByDescending(c => c.LastMessageSentAt ?? DateTime.MinValue);
@@ -47,11 +50,13 @@ public class ConversationService(
 
         var lastMessage = conversation.Messages.OrderByDescending(m => m.TimeStamp).FirstOrDefault();
         string name = conversation.Name ?? "Unknown";
+        string? imageUrl = conversation.ImageUrl;
 
         if (!conversation.IsGroup)
         {
             var otherMember = conversation.Members.FirstOrDefault(m => m.UserId != currentUserId);
             name = otherMember?.User.DisplayName ?? otherMember?.User.UserName ?? "Unknown";
+            imageUrl = otherMember?.User.ProfilePictureUrl;
         }
 
         return new ConversationDetailsDto
@@ -61,13 +66,13 @@ public class ConversationService(
             IsGroup = conversation.IsGroup,
             LastMessage = lastMessage?.Content,
             LastMessageSentAt = lastMessage?.TimeStamp,
-            ImageUrl = conversation.ImageUrl,
+            ImageUrl = imageUrl,
             Members = conversation.Members.Select(m => new ConversationMemberDto
             {
                 UserId = m.UserId,
                 Username = m.User.UserName ?? string.Empty,
                 DisplayName = m.User.DisplayName,
-                ProfilePictureUrl = m.User.ProfilePictureUrl,
+                AvatarUrl = m.User.ProfilePictureUrl,
                 IsAdmin = m.IsAdmin
             }).ToList()
         };
@@ -181,7 +186,7 @@ public class ConversationService(
                 UserId = targetUserId,
                 Username = targetUser.UserName ?? string.Empty,
                 DisplayName = targetUser.DisplayName,
-                ProfilePictureUrl = targetUser.ProfilePictureUrl,
+                AvatarUrl = targetUser.ProfilePictureUrl,
                 IsAdmin = false
             };
 

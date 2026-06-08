@@ -26,7 +26,7 @@ public class UserService(UserManager<User> userManager) : IUserService
         var searchTerm = query.ToLower();
 
         var users = await userManager.Users
-            .Where(u => u.Id.Equals(currentUserId) &&
+            .Where(u => !u.Id.Equals(Guid.Parse(currentUserId)) &&
                         ((u.UserName != null && u.UserName.ToLower().Contains(searchTerm)) ||
                          (u.DisplayName != null && u.DisplayName.ToLower().Contains(searchTerm))))
             .Take(10)

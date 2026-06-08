@@ -1,7 +1,14 @@
 import { inject, Injectable, signal, NgZone } from '@angular/core';
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 import { environment } from '../../../environments/environment';
-import { Attachment, MessageDto } from '../models/conversation.model';
+import {
+  Attachment,
+  Conversation,
+  ConversationUpdatedEvent,
+  MemberAddedEvent,
+  MemberRemovedEvent,
+  MessageDto,
+} from '../models/conversation.model';
 import { Subject } from 'rxjs';
 
 @Injectable({
@@ -14,6 +21,19 @@ export class ChatService {
   private hubConnection: HubConnection | undefined;
   private messageReceivedSource = new Subject<MessageDto>();
   messageReceived$ = this.messageReceivedSource.asObservable();
+
+  private conversationCreatedSource = new Subject<Conversation>();
+  conversationCreated$ = this.conversationCreatedSource.asObservable();
+
+  private conversationUpdatedSource = new Subject<ConversationUpdatedEvent>();
+  conversationUpdated$ = this.conversationUpdatedSource.asObservable();
+
+  private memberAddedSource = new Subject<MemberAddedEvent>();
+  memberAdded$ = this.memberAddedSource.asObservable();
+
+  private memberRemovedSource = new Subject<MemberRemovedEvent>();
+  memberRemoved$ = this.memberRemovedSource.asObservable();
+
   private hubReadyPromise: Promise<void> | undefined;
 
   createHubConnection() {
@@ -59,11 +79,27 @@ export class ChatService {
       });
     });
 
-    this.hubConnection.on('OnUserTyping', (data: { userId: string; displayName: string }) => {
+    this.hubConnection.on('ConversationCreated', (conversation: Conversation) => {
+      this.ngZone.run(() => this.conversationCreatedSource.next(conversation));
+    });
+
+    this.hubConnection.on('ConversationUpdated', (data: ConversationUpdatedEvent) => {
+      this.ngZone.run(() => this.conversationUpdatedSource.next(data));
+    });
+
+    this.hubConnection.on('MemberAdded', (data: MemberAddedEvent) => {
+      this.ngZone.run(() => this.memberAddedSource.next(data));
+    });
+
+    this.hubConnection.on('MemberRemoved', (data: MemberRemovedEvent) => {
+      this.ngZone.run(() => this.memberRemovedSource.next(data));
+    });
+
+    this.hubConnection.on('OnUserTyping', (data: { userId: string; userName: string }) => {
       this.ngZone.run(() => {
         this.typingUsers.update((users) => {
           if (users.find((x) => x.userId === data.userId)) return users;
-          return [...users, { userId: data.userId, displayName: data.displayName }];
+          return [...users, { userId: data.userId, displayName: data.userName }];
         });
       });
     });
@@ -101,17 +137,17 @@ export class ChatService {
     conversationId: string,
     content: string,
     attachments?: Attachment[],
-  ): Promise<MessageDto> {
+  ): Promise<void> {
     if (this.hubReadyPromise) {
       await this.hubReadyPromise;
       console.log('SignalR: Sending message to', conversationId);
-      const message = await this.hubConnection?.invoke<MessageDto>(
+      await this.hubConnection?.invoke(
         'SendMessage',
         conversationId,
         content,
         attachments,
       );
-      return this.ngZone.run(() => message!);
+      return;
     }
     return Promise.reject('Hub connection not established');
   }
