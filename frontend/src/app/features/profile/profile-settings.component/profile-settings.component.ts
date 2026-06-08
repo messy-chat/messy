@@ -53,6 +53,13 @@ export class ProfileSettingsComponent implements OnInit {
   onFileSelected(event: any) {
     const file: File = event.target.files[0];
     if (file) {
+      const maxSize = 10 * 1024 * 1024; // 10 MB
+      if (file.size > maxSize) {
+        this.errorMessage.set(`The photo exceeds the maximum size of 10 MB.`);
+        event.target.value = '';
+        return;
+      }
+
       this.isUploading.set(true);
       this.errorMessage.set('');
       this.successMessage.set('');

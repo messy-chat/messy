@@ -1,0 +1,47 @@
+<div class="p-4 border-t border-base-300 bg-base-200">
+  @if (this.chatService.typingUsers().length > 0) {
+    <div class="text-xs text-base-content/60 italic p-2">
+      @for (user of this.chatService.typingUsers(); track user.userId) {
+        <span>{{ user.displayName }} </span>
+      }
+      typing <span class="loading loading-dots loading-xs"></span>
+    </div>
+  }
+  @if (this.pendingAttachments().length > 0) {
+    <div class="flex flex-wrap gap-2 mb-2 p-2 bg-base-100 rounded-lg border border-base-300">
+      @for (file of this.pendingAttachments(); track $index) {
+        <div class="badge badge-secondary gap-2 p-3">
+          <span class="text-xs truncate max-w-[150px]">{{ file.fileName }}</span>
+          <svg (click)="this.removeAttachment($index)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-4 h-4 stroke-current cursor-pointer">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+      }
+    </div>
+  }
+
+  <form (submit)="this.sendMessage(); $event.preventDefault()" class="flex gap-2">
+    <input #fileInput type="file" class="hidden" multiple (change)="this.onFileSelected($event)" />
+    <button type="button" class="btn btn-circle btn-ghost" (click)="fileInput.click()" [disabled]="this.isUploading()">
+      @if (this.isUploading()) { <span class="loading loading-spinner loading-xs"></span> }
+      @else {
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        </svg>
+      }
+    </button>
+
+    <input
+      [(ngModel)]="this.messageContent"
+      (input)="this.onInput()"
+      name="content"
+      type="text"
+      placeholder="Type your message..."
+      class="input input-bordered flex-1 focus:input-primary"
+      autocomplete="off"
+    />
+    <button type="submit" class="btn btn-primary" [disabled]="this.messageContent.trim() && this.pendingAttachments().length === 0">
+      Send
+    </button>
+  </form>
+</div>
